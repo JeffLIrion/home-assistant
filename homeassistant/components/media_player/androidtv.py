@@ -1,5 +1,5 @@
 """
-Provide functionality to interact with AndroidT devices on the network.
+Provide functionality to interact with AndroidTV devices on the network.
 
 Example config:
 media_player:
@@ -12,27 +12,47 @@ For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/media_player.androidtv/
 """
 
+import functools
 import logging
+import os
+import time
 import voluptuous as vol
 
 from homeassistant.components.media_player import (
-    DOMAIN, MediaPlayerDevice, PLATFORM_SCHEMA, SUPPORT_NEXT_TRACK,
-    SUPPORT_PAUSE, SUPPORT_PLAY,
-    SUPPORT_PREVIOUS_TRACK, SUPPORT_STOP, SUPPORT_TURN_OFF,
-    SUPPORT_TURN_ON, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_STEP)
+    DOMAIN, SUPPORT_NEXT_TRACK, SUPPORT_PAUSE, SUPPORT_PREVIOUS_TRACK,
+    PLATFORM_SCHEMA, SUPPORT_SELECT_SOURCE, SUPPORT_STOP, SUPPORT_TURN_OFF,
+    SUPPORT_TURN_ON, SUPPORT_VOLUME_SET, SUPPORT_VOLUME_MUTE,
+    SUPPORT_VOLUME_STEP, SUPPORT_PLAY, MediaPlayerDevice)
 
 from homeassistant.const import (
-    ATTR_ENTITY_ID, CONF_HOST, CONF_NAME, CONF_PORT,
-    STATE_IDLE, STATE_PAUSED, STATE_PLAYING, STATE_OFF)
-from homeassistant.exceptions import PlatformNotReady
+    ATTR_ENTITY_ID, CONF_HOST, CONF_NAME, CONF_PORT, STATE_IDLE, STATE_PAUSED,
+    STATE_PLAYING, STATE_OFF, STATE_STANDBY, STATE_UNKNOWN)
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['pure-python-adb==0.1.5.dev0']
+REQUIREMENTS = ['libusb1>=1.6.6', 'rsa>=3.4.2', 'pycryptodome>=3.6.6',
+                'https://github.com/JeffLIrion/python-adb/zipball/version_bump#adb==1.3.0.1',
+                'https://github.com/JeffLIrion/python-androidtv/zipball/master#androidtv==0.0.1']
 
 _LOGGER = logging.getLogger(__name__)
 
+SUPPORT_ANDROIDTV = (SUPPORT_NEXT_TRACK | SUPPORT_PAUSE |
+                     SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK |
+                     SUPPORT_TURN_OFF | SUPPORT_TURN_ON |
+                     SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_STEP |
+                     SUPPORT_VOLUME_SET | SUPPORT_STOP)
+
+CONF_ADBKEY = 'adbkey'
+
 DEFAULT_NAME = 'Android'
 DEFAULT_PORT = '5555'
+DEFAULT_ADBKEY = ''
+
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
+    vol.Required(CONF_HOST): cv.string,
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+    vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(cv.port, cv.string),
+    vol.Optional(CONF_ADBKEY, default=DEFAULT_ADBKEY): cv.string,
+})
 
 ACTIONS = {
     "back": "4",
@@ -87,18 +107,6 @@ KNOWN_APPS = {
     "youtube": "Youtube"
 }
 
-SUPPORT_ANDROIDTV = (SUPPORT_NEXT_TRACK | SUPPORT_PAUSE |
-                     SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK |
-                     SUPPORT_TURN_OFF | SUPPORT_TURN_ON |
-                     SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_STEP |
-                     SUPPORT_STOP)
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_HOST): cv.string,
-    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-    vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(cv.port, cv.string),
-})
-
 ACTION_SERVICE = 'androidtv_action'
 INTENT_SERVICE = 'androidtv_intent'
 KEY_SERVICE = 'androidtv_key'
@@ -121,39 +129,36 @@ SERVICE_KEY_SCHEMA = vol.Schema({
 DATA_KEY = '{}.androidtv'.format(DOMAIN)
 
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up the androidtv platform."""
-    if DATA_KEY not in hass.data:
-        hass.data[DATA_KEY] = {}
-
-    from adb.client import Client as AdbClient
-    client = AdbClient(host="127.0.0.1", port=5037)
-
-    host = config.get(CONF_HOST)
+def setup_platform(hass, config, add_devices, discovery_info=None):
+    """Set up the AndroidTV platform."""
+    host = '{0}:{1}'.format(config.get(CONF_HOST), config.get(CONF_PORT))
     name = config.get(CONF_NAME)
-    port = config.get(CONF_PORT)
-    uri = "{}:{}".format(host, port)
+    adbkey = config.get(CONF_ADBKEY)
 
-    try:
-        adb_device = client.device(uri)
-        if adb_device is None:
-            _LOGGER.error(
-                "ADB server not connected to {}".format(name))
-            raise PlatformNotReady
+    device = AndroidTVDevice(host, name, adbkey)
+    adb_log = " using adbkey='{0}'".format(adbkey) if adbkey else ""
+    if not device._androidtv._adb:
+        _LOGGER.warning("Could not connect to Android TV at %s%s", host, adb_log)
 
-        androidtv = AndroidTv(name, uri, client, adb_device)
+        # Debugging
+        if adbkey != "":
+            # Check whether the key files exist
+            if not os.path.exists(adbkey):
+                raise FileNotFoundError(
+                    "ADB private key {} does not exist".format(adbkey))
+            if not os.path.exists(adbkey + ".pub"):
+                raise FileNotFoundError(
+                    "ADB public key {} does not exist".format(adbkey + '.pub'))
 
-        add_entities([androidtv])
-        if host in hass.data[DATA_KEY]:
-            _LOGGER.warning(
-                "Platform already setup on {}, skipping.".format(host))
-        else:
-            hass.data[DATA_KEY][host] = androidtv
+            # Check whether the key files can be read
+            with open(adbkey):
+                pass
+            with open(adbkey + '.pub'):
+                pass
 
-    except RuntimeError:
-        _LOGGER.error(
-            "Can't reach adb server, is it running ?")
-        raise PlatformNotReady
+    else:
+        _LOGGER.info("Setup Android TV at %s%s", host, adb_log)
+        add_devices([device])
 
     def service_action(service):
         """Dispatch service calls to target entities."""
@@ -199,120 +204,72 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         DOMAIN, KEY_SERVICE, service_key, schema=SERVICE_KEY_SCHEMA)
 
 
-class AndroidTv(MediaPlayerDevice):
+def adb_wrapper(func):
+    """A wrapper that will wait if previous ADB commands haven't finished."""
+    @functools.wraps(func)
+    def _adb_wrapper(self, *args, **kwargs):
+        attempts = 0
+        while self._adb_lock and attempts < 5:
+            attempts += 1
+            time.sleep(1)
+
+        if attempts == 5 and self._adb_lock:
+            self._androidtv.connect()
+
+        self._adb_lock = True
+        returns = func(self, *args, **kwargs)
+        self._adb_lock = False
+
+        if returns:
+            return returns
+
+    return _adb_wrapper
+
+
+def get_app_name(app_id):
+    """Return the app name from its id and known apps."""
+    for app in KNOWN_APPS:
+        if app in app_id:
+            return KNOWN_APPS[app]
+
+    return None
+
+
+class AndroidTVDevice(MediaPlayerDevice):
     """Representation of an AndroidTv device."""
 
-    def __init__(self, name, uri, client, adb_device):
-        """Initialize the Android device."""
-        self._client = client
-        self._adb_device = adb_device
-        self._uri = uri
+    def __init__(self, host, name, adbkey):
+        """Initialize the AndroidTV device."""
+        from androidtv import AndroidTV
+        self._host = host
+        self._adbkey = adbkey
+        self._androidtv = AndroidTV(host, adbkey)
+        self._adb_lock = False
         self._name = name
-        self._available = None
-        self._volume = None
-        self._muted = None
-        self._state = None
-        self._app_id = None
+        self._state = STATE_UNKNOWN
         self._app_name = None
-        self._device = None
+        # self._running_apps = None
+        # self._current_app = None
 
+    @adb_wrapper
     def update(self):
         """Get the latest details from the device."""
-        try:
-            devices = self._client.devices()
-        except RuntimeError:
-            # Can't connect to adb server
-            if self._available:
-                _LOGGER.error(
-                    "Can't reach adb server, is it running ?")
-                _LOGGER.warning(
-                    "Device {} became unavailable.".format(self._name))
-                self._available = False
-        else:
-            if any([self._uri in host.get_serial_no() for host in devices]):
-                # Device is connected through the ADB server
-                if not self._available:
-                    _LOGGER.info("Device {} reconnected.".format(self._name))
-                    self._available = True
+        self._androidtv.update()
 
-                power_output = self._adb_device.shell('dumpsys power')
-                audio_output = self._adb_device.shell('dumpsys audio')
-                win_output = self._adb_device.shell('dumpsys window windows')
+        if self._androidtv.state == 'off':
+            self._state = STATE_OFF
+        elif self._androidtv.state == 'idle':
+            self._state = STATE_IDLE
+        elif self._androidtv.state == 'play':
+            self._state = STATE_PLAYING
+        elif self._androidtv.state == 'pause':
+            self._state = STATE_PAUSED
+        elif self._androidtv.state == 'standby':
+            self._state = STATE_STANDBY
+        elif self._androidtv.state == 'unknown':
+            self._state = STATE_UNKNOWN
 
-                self._state = self.get_state(power_output, audio_output)
-                self._muted, self._device, self._volume = self.get_audio(
-                    audio_output)
-                self._app_id = self.get_app_id(win_output)
-                self._app_name = self.get_app_name(self._app_id)
-
-            elif self._available:
-                _LOGGER.error(
-                    "ADB server not connected to {}".format(self._name))
-                _LOGGER.warning(
-                    "Device {} became unavailable.".format(self._name))
-                self._available = False
-
-    def get_state(self, power_output, audio_output):
-        """Process sys outputs and return the device state."""
-        if 'Display Power: state=ON' not in power_output:
-            state = STATE_OFF
-        elif 'started' in audio_output:
-            state = STATE_PLAYING
-        elif 'paused' in audio_output:
-            state = STATE_PAUSED
-        else:
-            state = STATE_IDLE
-
-        return state
-
-    def get_audio(self, audio_output):
-        """Process sys output and return the volume, muted state and device."""
-        import re
-        block_pattern = 'STREAM_MUSIC(.*?)- STREAM'
-        stream_block = re.findall(
-            block_pattern, audio_output, re.DOTALL | re.MULTILINE)[0]
-
-        device_pattern = 'Devices: (.*?)\W'
-        device = re.findall(device_pattern, stream_block,
-                            re.DOTALL | re.MULTILINE)[0]
-
-        muted_pattern = 'Muted: (.*?)\W'
-        muted = re.findall(muted_pattern, stream_block,
-                           re.DOTALL | re.MULTILINE)[0]
-
-        volume_pattern = device + '\): (\d{1,})'
-        volume_level = re.findall(
-            volume_pattern, stream_block, re.DOTALL | re.MULTILINE)[0]
-
-        if muted == 'true':
-            muted = True
-        else:
-            muted = False
-
-        volume = round(1/15 * int(volume_level), 2)
-
-        return muted, device, volume
-
-    def get_app_id(self, win_output):
-        """Process sys output and return the current app id."""
-        win_output = win_output.splitlines()
-        for line in win_output:
-            if 'mCurrentFocus' in line:
-                current_app = line.split(' ')[4].split('/')[0]
-                return current_app
-        return None
-
-    def get_app_name(self, app_id):
-        """Return the app name from its id and known apps."""
-        i = 0
-        for app in KNOWN_APPS:
-            if app in app_id:
-                app_name = KNOWN_APPS[app]
-                i += 1
-        if i == 0:
-            app_name = None
-
-        return app_name
+        self._app_name = get_app_name(self._androidtv.app_id)
 
     @property
     def name(self):
@@ -322,37 +279,37 @@ class AndroidTv(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the device."""
-        return self._state
+        return self._androidtv.state
 
     @property
     def is_volume_muted(self):
         """Boolean if volume is currently muted."""
-        return self._muted
+        return self._androidtv.muted
 
     @property
     def volume_level(self):
         """Return the volume level."""
-        return self._volume
+        return self._androidtv.volume
 
-    @property
-    def source(self):
-        """Return the current playback device."""
-        return self._device
+    # @property
+    # def source(self):
+    #     """Return the current playback device."""
+    #     return self._device
 
     @property
     def app_id(self):
         """ID of the current running app."""
-        return self._app_id
+        return self._androidtv.app_id
 
     @property
     def app_name(self):
         """Name of the current running app."""
         return self._app_name
 
-    @property
-    def available(self):
-        """Return True if entity is available."""
-        return self._available
+    # @property
+    # def available(self):
+    #     """Return True if entity is available."""
+    #     return self._available
 
     @property
     def supported_features(self):
@@ -361,61 +318,61 @@ class AndroidTv(MediaPlayerDevice):
 
     def turn_on(self):
         """Instruct the tv to turn on."""
-        self._adb_device.shell('input keyevent 26')
+        self._androidtv.turn_on()
 
     def turn_off(self):
         """Instruct the tv to turn off."""
-        self._adb_device.shell('input keyevent 26')
+        self._androidtv.turn_off()
 
     def media_play(self):
         """Send play command."""
-        self._adb_device.shell('input keyevent 126')
+        self._androidtv.media_play()
         self._state = STATE_PLAYING
 
     def media_pause(self):
         """Send pause command."""
-        self._adb_device.shell('input keyevent 127')
+        self._androidtv.media_pause()
         self._state = STATE_PAUSED
 
     def media_play_pause(self):
         """Send play/pause command."""
-        self._adb_device.shell('input keyevent 85')
+        self._androidtv.media_play_pause()
 
     def media_stop(self):
         """Send stop command."""
-        self._adb_device.shell('input keyevent 86')
+        self._androidtv.media_stop()
         self._state = STATE_IDLE
 
     def mute_volume(self, mute):
         """Mute the volume."""
-        self._adb_device.shell('input keyevent 164')
+        self._androidtv.mute_volume()
         self._muted = mute
 
     def volume_up(self):
         """Increment the volume level."""
-        self._adb_device.shell('input keyevent 24')
+        self._androidtv.volume_up()
 
     def volume_down(self):
         """Decrement the volume level."""
-        self._adb_device.shell('input keyevent 25')
+        self._androidtv.volume_down()
 
     def media_previous_track(self):
         """Send previous track command."""
-        self._adb_device.shell('input keyevent 88')
+        self._androidtv.media_previous()
 
     def media_next_track(self):
         """Send next track command."""
-        self._adb_device.shell('input keyevent 87')
+        self._androidtv.media_next()
 
     def input_key(self, key):
         """Input the key to the device."""
-        self._adb_device.shell("input keyevent {}".format(key))
+        self._androidtv._key(key)
 
     def start_intent(self, uri):
         """Start an intent on the device."""
-        self._adb_device.shell(
+        self._androidtv._adb.Shell(
             "am start -a android.intent.action.VIEW -d {}".format(uri))
 
     def do_action(self, action):
         """Input the key corresponding to the action."""
-        self._adb_device.shell("input keyevent {}".format(ACTIONS[action]))
+        self._androidtv._adb.Shell("input keyevent {}".format(ACTIONS[action]))
