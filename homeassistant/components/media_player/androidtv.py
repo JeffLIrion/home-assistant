@@ -29,9 +29,7 @@ from homeassistant.const import (
     STATE_PLAYING, STATE_OFF, STATE_STANDBY, STATE_UNKNOWN)
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['libusb1>=1.6.6', 'rsa>=3.4.2', 'pycryptodome>=3.6.6',
-                'https://github.com/JeffLIrion/python-adb/zipball/version_bump#adb==1.3.0.1',
-                'https://github.com/JeffLIrion/python-androidtv/zipball/master#androidtv==0.0.1']
+REQUIREMENTS = ['adb-homeassistant', 'androidtv']
 
 _LOGGER = logging.getLogger(__name__)
 
