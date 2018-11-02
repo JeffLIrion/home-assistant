@@ -29,7 +29,7 @@ from homeassistant.const import (
     STATE_PLAYING, STATE_OFF, STATE_STANDBY, STATE_UNKNOWN)
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['adb-homeassistant', 'androidtv']
+REQUIREMENTS = ['androidtv==0.0.2']
 
 _LOGGER = logging.getLogger(__name__)
 
