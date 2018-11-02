@@ -127,6 +127,7 @@ SERVICE_KEY_SCHEMA = vol.Schema({
 DATA_KEY = '{}.androidtv'.format(DOMAIN)
 
 
+# pylint: disable=protected-access
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Set up the AndroidTV platform."""
     host = '{0}:{1}'.format(config.get(CONF_HOST), config.get(CONF_PORT))
@@ -136,7 +137,8 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     device = AndroidTVDevice(host, name, adbkey)
     adb_log = " using adbkey='{0}'".format(adbkey) if adbkey else ""
     if not device._androidtv._adb:
-        _LOGGER.warning("Could not connect to Android TV at %s%s", host, adb_log)
+        _LOGGER.warning("Could not connect to Android TV at %s%s",
+                        host, adb_log)
 
         # Debugging
         if adbkey != "":
@@ -203,7 +205,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
 
 def adb_wrapper(func):
-    """A wrapper that will wait if previous ADB commands haven't finished."""
+    """Wait if previous ADB commands haven't finished."""
     @functools.wraps(func)
     def _adb_wrapper(self, *args, **kwargs):
         attempts = 0
@@ -212,14 +214,27 @@ def adb_wrapper(func):
             time.sleep(1)
 
         if attempts == 5 and self._adb_lock:
-            self._androidtv.connect()
+            try:
+                self._androidtv.connect()
+            except self._exceptions:
+                _LOGGER.error('Failed to re-establish the ADB connection; '
+                              'will re-attempt in the next update.')
+                self._androidtv._adb = None
+                self._adb_lock = False
+                return
 
         self._adb_lock = True
-        returns = func(self, *args, **kwargs)
-        self._adb_lock = False
+        try:
+            returns = func(self, *args, **kwargs)
+        except self._exceptions:
+            returns = None
+            _LOGGER.error('Failed to execute an ADB command; will attempt to '
+                          're-establish the ADB connection in the next update')
+            self._androidtv._adb = None
+        finally:
+            self._adb_lock = False
 
-        if returns:
-            return returns
+        return returns
 
     return _adb_wrapper
 
@@ -238,11 +253,19 @@ class AndroidTVDevice(MediaPlayerDevice):
 
     def __init__(self, host, name, adbkey):
         """Initialize the AndroidTV device."""
-        from androidtv import AndroidTV
+        from androidtv import AndroidTV  # pylint: disable=no-name-in-module
+        from adb.adb_protocol import (
+            InvalidCommandError, InvalidResponseError, InvalidChecksumError)
+
         self._host = host
         self._adbkey = adbkey
         self._androidtv = AndroidTV(host, adbkey)
         self._adb_lock = False
+
+        self._exceptions = (TypeError, ValueError, AttributeError,
+                            InvalidCommandError, InvalidResponseError,
+                            InvalidChecksumError)
+
         self._name = name
         self._state = STATE_UNKNOWN
         self._app_name = None
@@ -344,7 +367,7 @@ class AndroidTVDevice(MediaPlayerDevice):
     def mute_volume(self, mute):
         """Mute the volume."""
         self._androidtv.mute_volume()
-        self._muted = mute
+        self._androidtv.muted = mute
 
     def volume_up(self):
         """Increment the volume level."""
