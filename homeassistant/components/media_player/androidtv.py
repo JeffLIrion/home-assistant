@@ -241,11 +241,14 @@ def adb_wrapper(func):
 
 def get_app_name(app_id):
     """Return the app name from its id and known apps."""
+    if not app_id:
+        return
+
     for app in KNOWN_APPS:
         if app in app_id:
             return KNOWN_APPS[app]
 
-    return None
+    return
 
 
 class AndroidTVDevice(MediaPlayerDevice):
