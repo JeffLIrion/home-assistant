@@ -170,18 +170,13 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     name = config.get(CONF_NAME)
 
     if CONF_ADB_SERVER_IP not in config:
-        try:
-            # "python-adb" without adbkey
+        # "python-adb"
+        if CONF_ADBKEY in config:
+            atv = AndroidTV(host, config[CONF_ADBKEY])
+            adb_log = " using adbkey='{0}'".format(config[CONF_ADBKEY])
+        else:
             atv = AndroidTV(host)
             adb_log = ""
-        except:
-            # "python-adb" with adbkey
-            if CONF_ADBKEY in config:
-                adbkey = config[CONF_ADBKEY]
-            else:
-                adbkey = DEFAULT_ADBKEY
-            atv = AndroidTV(host, adbkey)
-            adb_log = " using adbkey='{0}'".format(adbkey)
     else:
         # "pure-python-adb"
         atv = AndroidTV(
@@ -317,7 +312,7 @@ class AndroidTVDevice(MediaPlayerDevice):
                                InvalidCommandError, InvalidResponseError)
         else:
             # "pure-python-adb"
-            self.exceptions = []
+            self.exceptions = tuple()
 
     @adb_decorator(override_available=True)
     def update(self):
@@ -332,13 +327,9 @@ class AndroidTVDevice(MediaPlayerDevice):
         # If the ADB connection is not intact, don't update.
         if not self._available:
             return
-        try:
-            self.androidtv.update()
-            self._app_name = self.get_app_name(self.androidtv.app_id)
-        except:
-            _LOGGER.warning(
-                "Device {} became unavailable.".format(self._name))
-            self._available = False
+
+        self.androidtv.update()
+        self._app_name = self.get_app_name(self.androidtv.app_id)
 
         if self.androidtv.state == 'off':
             self._state = STATE_OFF
