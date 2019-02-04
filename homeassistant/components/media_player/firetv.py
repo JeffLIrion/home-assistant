@@ -186,7 +186,7 @@ class FireTVDevice(MediaPlayerDevice):
 
     @adb_decorator(override_available=True)
     def update(self):
-        """Get the latest date and update device state."""
+        """Update the device state and, if necessary, re-connect."""
         # Check if device is disconnected.
         if not self._available:
             self._running_apps = None
