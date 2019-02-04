@@ -22,7 +22,7 @@ REQUIREMENTS = ['firetv==1.0.8']
 
 _LOGGER = logging.getLogger(__name__)
 
-SUPPORT_FIRETV = SUPPORT_PAUSE | \ SUPPORT_PLAY | \
+SUPPORT_FIRETV = SUPPORT_PAUSE | SUPPORT_PLAY | \
     SUPPORT_TURN_ON | SUPPORT_TURN_OFF | SUPPORT_PREVIOUS_TRACK | \
     SUPPORT_NEXT_TRACK | SUPPORT_SELECT_SOURCE | SUPPORT_STOP
 
@@ -122,9 +122,6 @@ class FireTVDevice(MediaPlayerDevice):
 
     def __init__(self, ftv, name, get_sources):
         """Initialize the FireTV device."""
-        from adb.adb_protocol import (
-            InvalidChecksumError, InvalidCommandError, InvalidResponseError)
-
         self.firetv = ftv
 
         self._name = name
@@ -134,9 +131,20 @@ class FireTVDevice(MediaPlayerDevice):
         self.adb_lock = threading.Lock()
 
         # ADB exceptions to catch
-        self.exceptions = (
-            AttributeError, BrokenPipeError, TypeError, ValueError,
-            InvalidChecksumError, InvalidCommandError, InvalidResponseError)
+        if not self.firetv.adb_server_ip:
+            # "python-adb"
+            from adb.adb_protocol import (InvalidChecksumError,
+                                          InvalidCommandError,
+                                          InvalidResponseError)
+            from adb.usb_exceptions import TcpTimeoutException
+
+            self.exceptions = (AttributeError, BrokenPipeError, TypeError,
+                               ValueError, InvalidChecksumError,
+                               InvalidCommandError, InvalidResponseError,
+                               TcpTimeoutException)
+        else:
+            # "pure-python-adb"
+            self.exceptions = (ConnectionResetError,)
 
         self._state = None
         self._available = self.firetv.available
