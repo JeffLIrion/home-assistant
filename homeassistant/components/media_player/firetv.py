@@ -18,7 +18,7 @@ from homeassistant.const import (
     STATE_PLAYING, STATE_STANDBY)
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['firetv==1.0.7']
+REQUIREMENTS = ['firetv==1.0.8']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +35,17 @@ DEFAULT_NAME = 'Amazon Fire TV'
 DEFAULT_PORT = 5555
 DEFAULT_GET_SOURCE = True
 DEFAULT_GET_SOURCES = True
+
+ADB_SERVICE = 'firetv_adb'
+
+ATTR_CMD = 'cmd'
+
+SERVICE_ADB_SCHEMA = vol.Schema({
+    vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
+    vol.Required(ATTR_CMD): cv.string,
+})
+
+ DATA_KEY = '{}.firetv'.format(DOMAIN)
 
 
 def has_adb_files(value):
@@ -62,6 +73,9 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the FireTV platform."""
     from firetv import FireTV
 
+    if DATA_KEY not in hass.data:
+        hass.data[DATA_KEY] = {}
+
     host = '{0}:{1}'.format(config[CONF_HOST], config[CONF_PORT])
 
     if CONF_ADBKEY in config:
@@ -79,9 +93,30 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     get_source = config[CONF_GET_SOURCE]
     get_sources = config[CONF_GET_SOURCES]
 
-    device = FireTVDevice(ftv, name, get_source, get_sources)
-    add_entities([device])
-    _LOGGER.debug("Setup Fire TV at %s%s", host, adb_log)
+    if host in hass.data[DATA_KEY]:
+        _LOGGER.warning("Platform already setup on %s, skipping.", host)
+    else:
+        device = FireTVDevice(ftv, name, get_source, get_sources)
+        add_entities([device])
+        _LOGGER.debug("Setup Fire TV at %s%s", host, adb_log)
+        hass.data[DATA_KEY][host] = device
+
+     def service_adb(service):
+         """Dispatch service calls to target entities."""
+        cmd = service.data.get(ATTR_CMD)
+        entity_id = service.data.get(ATTR_ENTITY_ID)
+        target_devices = [dev for dev in hass.data[DATA_KEY].values()
+                          if dev.entity_id in entity_id]
+        
+        for target_device in target_devices:
+                key = target_device.firetv.KEYS.get(cmd.upper())
+                if key:
+                    target_device.firetv.adb_shell('input keyevent {}'.format(key))
+                else:
+                    target_device.firetv.adb_shell(cmd)
+
+    hass.services.register(
+        DOMAIN, ADB_SERVICE, service_adb, schema=SERVICE_ADB_SCHEMA)
 
 
 def adb_decorator(override_available=False):
@@ -121,6 +156,8 @@ def adb_decorator(override_available=False):
 
 class FireTVDevice(MediaPlayerDevice):
     """Representation of an Amazon Fire TV device on the network."""
+
+    from firetv import KEYS
 
     def __init__(self, ftv, name, get_source, get_sources):
         """Initialize the FireTV device."""
