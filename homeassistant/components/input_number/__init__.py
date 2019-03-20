@@ -105,7 +105,6 @@ async def async_setup(hass, config):
         mode = cfg.get(CONF_MODE)
         template = cfg.get(CONF_VALUE_TEMPLATE)
         value_script = cfg.get(CONF_SET_VALUE)
-        _LOGGER.critical(value_script)
 
         template_entity_ids = set()
 
@@ -282,6 +281,8 @@ class InputNumber(RestoreEntity):
         """Update the state from the template."""
         if self._template is not None:
             try:
-                self._current_value = float(self._template.async_render())
+                template = self._template.async_render()
+                if template != 'None':
+                    self._current_value = float(template)
             except TemplateError as ex:
                 _LOGGER.error(ex)
