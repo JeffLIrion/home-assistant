@@ -223,7 +223,7 @@ class ADBDevice(MediaPlayerDevice):
                                TcpTimeoutException)
         else:
             # Using "pure-python-adb" (communicate with ADB server)
-            self.exceptions = (ConnectionResetError,)
+            self.exceptions = (ConnectionResetError, RuntimeError)
 
         # Property attributes
         self._available = self.aftv.available
