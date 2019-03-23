@@ -1,0 +1,16 @@
+decrement:
+  description: Decrement the value of an template number entity by its stepping.
+  fields:
+    entity_id: {description: Entity id of the template number the should be decremented.,
+      example: template_number.threshold}
+increment:
+  description: Increment the value of an template number entity by its stepping.
+  fields:
+    entity_id: {description: Entity id of the template number the should be incremented.,
+      example: template_number.threshold}
+set_value:
+  description: Set the value of an template number entity.
+  fields:
+    entity_id: {description: Entity id of the template number to set the new value.,
+      example: template_number.threshold}
+    value: {description: The target value the entity should be set to., example: 42}
