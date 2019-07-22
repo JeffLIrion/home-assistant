@@ -14,3 +14,9 @@ set_value:
     entity_id: {description: Entity id of the input number to set the new value.,
       example: input_number.threshold}
     value: {description: The target value the entity should be set to., example: 42}
+set_value_no_script:
+  description: Set the value of an input number entity without running its script.
+  fields:
+    entity_id: {description: Entity id of the input number to set the new value.,
+      example: input_number.threshold}
+    value: {description: The target value the entity should be set to., example: 42}
