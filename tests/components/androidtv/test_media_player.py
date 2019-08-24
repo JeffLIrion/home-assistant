@@ -10,6 +10,13 @@ from homeassistant.components.androidtv.media_player import setup_platform
 from tests.common import get_test_home_assistant
 
 
+def connect(self):
+    """Mimic the `AndroidTV` / `FireTV` connect method."""
+    self._adb = True
+    self._available = True
+    return self._available
+
+
 '''def _create_zone_mock(name, url):
     zone = MagicMock()
     zone.ctrl_url = url
@@ -34,6 +41,9 @@ CONFIG_PYTHON_ADB = {
     "name": "Android TV",
     "device_class": "androidtv",
     "host": "127.0.0.1",
+    "port": 5555,
+    "state_detection_rules": {},
+    "apps": {},
 }
 
 
@@ -58,9 +68,8 @@ class TestAndroidTV(unittest.TestCase):
 
     def test_setup_platform(self):
         """Setup."""
-        with patch(
-            "homeassistant.components.androidtv.media_player.androidtv.basetv.BaseTV.connect",
-            return_value=True,
+        with patch("androidtv.basetv.BaseTV.connect", connect), patch(
+            "androidtv.basetv.BaseTV._adb_shell_python_adb", return_value=None
         ):
             add_entities = Mock()
             setup_platform(self.hass, CONFIG_PYTHON_ADB, add_entities)
