@@ -1,18 +1,16 @@
 """The tests for the androidtv platform."""
 import logging
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 # from homeassistant.setup import setup_component
-from homeassistant.components.androidtv.media_player import (
-    setup_platform,
-    AndroidTVDevice,
-    setup,
-)
+from homeassistant.components.androidtv.media_player import AndroidTVDevice, setup
+
+#    setup_platform,
 
 # import homeassistant.components.media_player as mp
 # from homeassistant.components.yamaha import media_player as yamaha
-from tests.common import get_test_home_assistant
+# from tests.common import get_test_home_assistant
 
 from socket import error as socket_error
 
@@ -36,9 +34,15 @@ def connect_device_fail(self, *args, **kwargs):
     raise socket_error
 
 
-def connect(self, always_log_errors=False):
+def connect_server_fail(self, *args, **kwargs):
+    """TODO."""
+    raise Exception
+
+
+def connect_success(self, always_log_errors=False):
     """Mimic the `AndroidTV` / `FireTV` connect method."""
     self._adb = True
+    self._adb_device = True
     self._available = True
     return self._available
 
@@ -46,8 +50,13 @@ def connect(self, always_log_errors=False):
 def connect_fail(self, always_log_errors=False):
     """Mimic the `AndroidTV` / `FireTV` connect method."""
     self._adb = False
+    self._adb_device = False
     self._available = False
     return self._available
+
+
+"""def adb_shell(self, cmd):
+    pass"""
 
 
 def adb_shell_python_adb_error(self, cmd):
@@ -90,20 +99,28 @@ CONFIG_PYTHON_ADB = {
 }
 
 
-"""class AdbAvailable:
+class AdbAvailable:
+    """A class with ADB shell methods that can be patched with return values."""
+
     def shell(self, cmd):
-        raise NotImplementedError
+        """Send an ADB shell command (ADB server implementation)."""
+        pass
 
     def Shell(self, cmd):
-        raise NotImplementedError
+        """Send an ADB shell command (Python ADB implementation)."""
+        pass
 
 
 class AdbUnavailable:
+    """A class with ADB shell methods that raise errors."""
+
     def shell(self, cmd):
-        raise AttributeError
+        """Raise an error that pertains to the Python ADB implementation."""
+        raise ConnectionResetError
 
     def Shell(self, cmd):
-        raise ConnectionResetError"""
+        """Raise an error that pertains to the ADB server implementation."""
+        raise AttributeError
 
 
 class TestAndroidTV(unittest.TestCase):
@@ -153,20 +170,28 @@ class TestAndroidTV(unittest.TestCase):
         )
 
 
-'''class TestAndroidTVServer(unittest.TestCase):
+class TestAndroidTVServer(unittest.TestCase):
     """Test the androidtv media player for an Android TV device."""
 
     def setUp(self):
         """Set up an `AndroidTVDevice` media player."""
-        with patch("adb_messenger.client.Client.device", return_value=None), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
-            atv = setup("127.0.0.1:5555", adb_server_ip="127.0.0.1", device_class="androidtv")
+        with patch(
+            "adb_messenger.client.Client.device", return_value=AdbAvailable()
+        ), patch("{}.AdbAvailable.shell".format(__name__), return_value=""), patch(
+            "androidtv.basetv.BaseTV.available", return_value=True
+        ):
+            atv = setup(
+                "127.0.0.1:5555", adb_server_ip="127.0.0.1", device_class="androidtv"
+            )
             self.atv = AndroidTVDevice(atv, "Fake Android TV", {}, None, None)
+            assert self.atv.available
+            assert self.atv.aftv.available
 
     def test_dummy(self):
         """Pass."""
         self.assertTrue(True)
 
-    def test_reconnect(self):
+    '''def test_reconnect(self):
         """Test that the error and reconnection attempts are logged correctly.
 
         "Handles device/service unavailable. Log a warning once when
@@ -175,23 +200,25 @@ class TestAndroidTV(unittest.TestCase):
         https://developers.home-assistant.io/docs/en/integration_quality_scale_index.html
         """
         with self.assertLogs(level=logging.WARNING) as logs:
-            with patch("adb_messenger.client.Client.device.adb_commands.AdbCommands.ConnectDevice", connect_device_fail), patch("adb.adb_commands.AdbCommands.Shell", adb_shell_python_adb_error):
-                for _ in range(5):
+            with patch("adb_messenger.client.Client.device", return_value=AdbUnavailable()), patch("{}.AdbAvailable.shell".format(__name__), adb_shell_adb_server_error):
+                for _ in range(3):
                     self.atv.update()
+                    assert not self.atv.available
+                    assert not self.atv.aftv.available
 
+        _LOGGER.critical(logs.output)
         assert len(logs.output) == 2
         assert logs.output[0].startswith("ERROR")
         assert logs.output[1].startswith("WARNING")
 
         with self.assertLogs(level=logging.DEBUG) as logs:
-            with patch("adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success), patch("adb.adb_commands.AdbCommands.Shell", return_value=True):
-                for _ in range(1):
-                    self.atv.update()
+            with patch("adb_messenger.client.Client.device", return_value=AdbAvailable()):#, patch("{}.shell".format(__name__), return_value=""):
+                self.atv.update()
 
         assert "ADB connection to {} successfully established".format(self.atv.aftv.host) in logs.output[0]'''
 
 
-class TestAndroidTV2(unittest.TestCase):
+'''class TestAndroidTV2(unittest.TestCase):
     """Test the androidtv media player for an Android TV device."""
 
     def setUp(self):
@@ -233,7 +260,7 @@ class TestAndroidTV2(unittest.TestCase):
                 pass
                 # self.hass.services.call("homeassistant", "update_entity", {"entity_id": "media_player.androidtv"})
 
-    '''def enable_output(self, port, enabled):
+    def enable_output(self, port, enabled):
         """Enable output on a specific port."""
         data = {
             "entity_id": "media_player.yamaha_receiver_main_zone",
