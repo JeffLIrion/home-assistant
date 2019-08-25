@@ -17,6 +17,23 @@ def connect(self):
     return self._available
 
 
+def connect_fail(self):
+    """Mimic the `AndroidTV` / `FireTV` connect method."""
+    self._adb = False
+    self._available = False
+    return self._available
+
+
+def adb_shell_python_adb_error(self, cmd):
+    """Raise an error that is among those caught for the Python ADB implementation."""
+    raise AttributeError
+
+
+def adb_shell_adb_server_error(self, cmd):
+    """Raise an error that is among those caught for the ADB server implementation."""
+    raise ConnectionResetError
+
+
 '''def _create_zone_mock(name, url):
     zone = MagicMock()
     zone.ctrl_url = url
@@ -38,7 +55,7 @@ class FakeYamahaDevice:
         return self.zones'''
 
 CONFIG_PYTHON_ADB = {
-    "name": "Android TV",
+    "name": "androidtv",
     "device_class": "androidtv",
     "host": "127.0.0.1",
     "port": 5555,
@@ -73,6 +90,21 @@ class TestAndroidTV(unittest.TestCase):
         ):
             add_entities = Mock()
             setup_platform(self.hass, CONFIG_PYTHON_ADB, add_entities)
+
+    def test_reconnect(self):
+        """Setup."""
+        with patch("androidtv.basetv.BaseTV.connect", connect), patch(
+            "androidtv.basetv.BaseTV._adb_shell_python_adb", return_value=None
+        ):
+            add_entities = Mock()
+            setup_platform(self.hass, CONFIG_PYTHON_ADB, add_entities)
+
+        with patch("androidtv.basetv.BaseTV.connect", connect_fail), patch(
+            "androidtv.basetv.BaseTV._adb_shell_python_adb", adb_shell_python_adb_error
+        ):
+            for _ in range(3):
+                pass
+                # self.hass.services.call("homeassistant", "update_entity", {"entity_id": "media_player.androidtv"})
 
     '''def enable_output(self, port, enabled):
         """Enable output on a specific port."""
