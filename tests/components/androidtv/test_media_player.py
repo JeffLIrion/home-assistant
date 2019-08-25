@@ -87,8 +87,14 @@ class TestAndroidTVPythonImplementation(unittest.TestCase):
             with patch(
                 "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success
             ), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
-                for _ in range(1):
-                    self.aftv.update()
+                # Update 1 will reconnect
+                self.aftv.update()
+                self.assertTrue(self.aftv.available)
+
+                # Update 2 will update the state
+                self.aftv.update()
+                self.assertTrue(self.aftv.available)
+                self.assertIsNotNone(self.aftv.state)
 
         assert (
             "ADB connection to {} successfully established".format(self.aftv.aftv.host)
@@ -139,6 +145,8 @@ class TestAndroidTVServerImplementation(unittest.TestCase):
                 "adb_messenger.client.Client.device", return_value=AdbAvailable()
             ):
                 self.aftv.update()
+                self.assertTrue(self.aftv.available)
+                self.assertIsNotNone(self.aftv.state)
 
         assert (
             "ADB connection to {} via ADB server {}:{} successfully established".format(
