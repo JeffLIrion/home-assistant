@@ -1,27 +1,14 @@
 """The tests for the androidtv platform."""
 import logging
+from socket import error as socket_error
 import unittest
 from unittest.mock import patch
 
-# from homeassistant.setup import setup_component
-from homeassistant.components.androidtv.media_player import AndroidTVDevice, setup
-
-#    setup_platform,
-
-# import homeassistant.components.media_player as mp
-# from homeassistant.components.yamaha import media_player as yamaha
-# from tests.common import get_test_home_assistant
-
-from socket import error as socket_error
-
-
-_LOGGER = logging.getLogger(__name__)
-
-
-RECONNECT_LOGS = [
-    "ERROR:homeassistant.components.androidtv.media_player:Failed to execute an ADB command. ADB connection re-establishing attempt in the next update. Error: ",
-    "WARNING:androidtv.basetv:Couldn't connect to host 127.0.0.1:5555, error: Timed out trying to connect to ADB device.",
-]
+from homeassistant.components.androidtv.media_player import (
+    AndroidTVDevice,
+    FireTVDevice,
+    setup,
+)
 
 
 def connect_device_success(self, *args, **kwargs):
@@ -34,31 +21,6 @@ def connect_device_fail(self, *args, **kwargs):
     raise socket_error
 
 
-def connect_server_fail(self, *args, **kwargs):
-    """TODO."""
-    raise Exception
-
-
-def connect_success(self, always_log_errors=False):
-    """Mimic the `AndroidTV` / `FireTV` connect method."""
-    self._adb = True
-    self._adb_device = True
-    self._available = True
-    return self._available
-
-
-def connect_fail(self, always_log_errors=False):
-    """Mimic the `AndroidTV` / `FireTV` connect method."""
-    self._adb = False
-    self._adb_device = False
-    self._available = False
-    return self._available
-
-
-"""def adb_shell(self, cmd):
-    pass"""
-
-
 def adb_shell_python_adb_error(self, cmd):
     """Raise an error that is among those caught for the Python ADB implementation."""
     raise AttributeError
@@ -69,36 +31,6 @@ def adb_shell_adb_server_error(self, cmd):
     raise ConnectionResetError
 
 
-'''def _create_zone_mock(name, url):
-    zone = MagicMock()
-    zone.ctrl_url = url
-    zone.zone = name
-    return zone
-
-
-class FakeYamahaDevice:
-    """A fake Yamaha device."""
-
-    def __init__(self, ctrl_url, name, zones=None):
-        """Initialize the fake Yamaha device."""
-        self.ctrl_url = ctrl_url
-        self.name = name
-        self.zones = zones or []
-
-    def zone_controllers(self):
-        """Return controllers for all available zones."""
-        return self.zones'''
-
-CONFIG_PYTHON_ADB = {
-    "name": "androidtv",
-    "device_class": "androidtv",
-    "host": "127.0.0.1",
-    "port": 5555,
-    "state_detection_rules": {},
-    "apps": {},
-}
-
-
 class AdbAvailable:
     """A class with ADB shell methods that can be patched with return values."""
 
@@ -106,9 +38,9 @@ class AdbAvailable:
         """Send an ADB shell command (ADB server implementation)."""
         pass
 
-    def Shell(self, cmd):
-        """Send an ADB shell command (Python ADB implementation)."""
-        pass
+    # def Shell(self, cmd):
+    #    """Send an ADB shell command (Python ADB implementation)."""
+    #    pass
 
 
 class AdbUnavailable:
@@ -122,12 +54,12 @@ class AdbUnavailable:
         """Raise an error that pertains to the Python ADB implementation."""
         raise ConnectionResetError
 
-    def Shell(self, cmd):
-        """Raise an error that pertains to the ADB server implementation."""
-        raise AttributeError
+    # def Shell(self, cmd):
+    #    """Raise an error that pertains to the ADB server implementation."""
+    #    raise AttributeError
 
 
-class TestAndroidTV(unittest.TestCase):
+class TestAndroidTVPythonImplementation(unittest.TestCase):
     """Test the androidtv media player for an Android TV device."""
 
     def setUp(self):
@@ -135,12 +67,8 @@ class TestAndroidTV(unittest.TestCase):
         with patch(
             "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success
         ), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
-            atv = setup("127.0.0.1:5555", device_class="androidtv")
-            self.atv = AndroidTVDevice(atv, "Fake Android TV", {}, None, None)
-
-    def test_dummy(self):
-        """Pass."""
-        self.assertTrue(True)
+            aftv = setup("127.0.0.1:5555", device_class="androidtv")
+            self.aftv = AndroidTVDevice(aftv, "Fake Android TV", {}, None, None)
 
     def test_reconnect(self):
         """Test that the error and reconnection attempts are logged correctly.
@@ -155,9 +83,9 @@ class TestAndroidTV(unittest.TestCase):
                 "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_fail
             ), patch("adb.adb_commands.AdbCommands.Shell", adb_shell_python_adb_error):
                 for _ in range(5):
-                    self.atv.update()
-                    self.assertFalse(self.atv.available)
-                    self.assertIsNone(self.atv.state)
+                    self.aftv.update()
+                    self.assertFalse(self.aftv.available)
+                    self.assertIsNone(self.aftv.state)
 
         assert len(logs.output) == 2
         assert logs.output[0].startswith("ERROR")
@@ -168,15 +96,15 @@ class TestAndroidTV(unittest.TestCase):
                 "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success
             ), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
                 for _ in range(1):
-                    self.atv.update()
+                    self.aftv.update()
 
         assert (
-            "ADB connection to {} successfully established".format(self.atv.aftv.host)
+            "ADB connection to {} successfully established".format(self.aftv.aftv.host)
             in logs.output[0]
         )
 
 
-class TestAndroidTVServer(unittest.TestCase):
+class TestAndroidTVServerImplementation(unittest.TestCase):
     """Test the androidtv media player for an Android TV device."""
 
     def setUp(self):
@@ -186,22 +114,10 @@ class TestAndroidTVServer(unittest.TestCase):
         ), patch("{}.AdbAvailable.shell".format(__name__), return_value=""), patch(
             "androidtv.basetv.BaseTV.available", return_value=True
         ):
-            atv = setup(
+            aftv = setup(
                 "127.0.0.1:5555", adb_server_ip="127.0.0.1", device_class="androidtv"
             )
-            self.atv = AndroidTVDevice(atv, "Fake Android TV", {}, None, None)
-            assert self.atv.available
-            assert self.atv.aftv.available
-            assert self.atv._available
-            assert self.atv.aftv._available
-            _LOGGER.critical("self.atv._available = %s", self.atv._available)
-            _LOGGER.critical("self.atv.aftv._available = %s", self.atv.aftv._available)
-            _LOGGER.critical("self.atv.available = %s", self.atv.available)
-            _LOGGER.critical("self.atv.aftv.available = %s", self.atv.aftv.available)
-
-    def test_dummy(self):
-        """Pass."""
-        self.assertTrue(True)
+            self.aftv = AndroidTVDevice(aftv, "Fake Android TV", {}, None, None)
 
     def test_reconnect(self):
         """Test that the error and reconnection attempts are logged correctly.
@@ -217,107 +133,54 @@ class TestAndroidTVServer(unittest.TestCase):
             ), patch(
                 "{}.AdbAvailable.shell".format(__name__), adb_shell_adb_server_error
             ):
-                for i in range(3):
-                    # _LOGGER.critical("%d) self.atv._available = %s", i, self.atv._available)
-                    # _LOGGER.critical("   self.atv.aftv._available = %s", self.atv.aftv._available)
-                    self.atv.update()
-                    # _LOGGER.critical("   self.atv.available = %s", self.atv.available)
-                    # _LOGGER.critical("   self.atv.aftv.available = %s", self.atv.aftv.available)
-                    # assert not self.atv.available
-                    # assert not self.atv.aftv.available
-                    self.assertFalse(self.atv.available)
-                    self.assertIsNone(self.atv.state)
+                for _ in range(5):
+                    self.aftv.update()
+                    self.assertFalse(self.aftv.available)
+                    self.assertIsNone(self.aftv.state)
 
-        _LOGGER.critical(logs.output)
         assert len(logs.output) == 2
         assert logs.output[0].startswith("ERROR")
         assert logs.output[1].startswith("WARNING")
-        # self.assertTrue(False)
 
         with self.assertLogs(level=logging.DEBUG) as logs:
             with patch(
                 "adb_messenger.client.Client.device", return_value=AdbAvailable()
-            ):  # , patch("{}.shell".format(__name__), return_value=""):
-                self.atv.update()
+            ):
+                self.aftv.update()
 
-        _LOGGER.critical(logs.output[0])
         assert (
             "ADB connection to {} via ADB server {}:{} successfully established".format(
-                self.atv.aftv.host,
-                self.atv.aftv.adb_server_ip,
-                self.atv.aftv.adb_server_port,
+                self.aftv.aftv.host,
+                self.aftv.aftv.adb_server_ip,
+                self.aftv.aftv.adb_server_port,
             )
             in logs.output[0]
         )
 
 
-'''class TestAndroidTV2(unittest.TestCase):
-    """Test the androidtv media player for an Android TV device."""
+class TestFireTVPythonImplementation(TestAndroidTVPythonImplementation):
+    """Test the androidtv media player for a Fire TV device."""
 
     def setUp(self):
-        """Set up things to be run when tests are started."""
-        self.hass = get_test_home_assistant()
-        # self.main_zone = _create_zone_mock("Main zone", "http://main")
-        # self.device = FakeYamahaDevice(
-        #    "http://receiver", "Receiver", zones=[self.main_zone]
-        # )
+        """Set up a `FireTVDevice` media player."""
+        with patch(
+            "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success
+        ), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
+            aftv = setup("127.0.0.1:5555", device_class="firetv")
+            self.aftv = FireTVDevice(aftv, "Fake Fire TV", {}, True, None, None)
 
-    def tearDown(self):
-        """Stop everything that was started."""
-        self.hass.stop()
 
-    def test_dummy(self):
-        """Pass."""
-        self.assertTrue(True)
+class TestFireTVServerImplementation(TestAndroidTVServerImplementation):
+    """Test the androidtv media player for a Fire TV device."""
 
-    def test_setup_platform(self):
-        """Setup."""
-        with patch("androidtv.basetv.BaseTV.connect", connect), patch(
-            "androidtv.basetv.BaseTV._adb_shell_python_adb", return_value=None
+    def setUp(self):
+        """Set up a `FireTVDevice` media player."""
+        with patch(
+            "adb_messenger.client.Client.device", return_value=AdbAvailable()
+        ), patch("{}.AdbAvailable.shell".format(__name__), return_value=""), patch(
+            "androidtv.basetv.BaseTV.available", return_value=True
         ):
-            add_entities = Mock()
-            setup_platform(self.hass, CONFIG_PYTHON_ADB, add_entities)
-
-    def test_reconnect(self):
-        """Setup."""
-        with patch("androidtv.basetv.BaseTV.connect", connect), patch(
-            "androidtv.basetv.BaseTV._adb_shell_python_adb", return_value=None
-        ):
-            add_entities = Mock()
-            setup_platform(self.hass, CONFIG_PYTHON_ADB, add_entities)
-
-        with patch("androidtv.basetv.BaseTV.connect", connect_fail), patch(
-            "androidtv.basetv.BaseTV._adb_shell_python_adb", adb_shell_python_adb_error
-        ):
-            for _ in range(3):
-                pass
-                # self.hass.services.call("homeassistant", "update_entity", {"entity_id": "media_player.androidtv"})
-
-    def enable_output(self, port, enabled):
-        """Enable output on a specific port."""
-        data = {
-            "entity_id": "media_player.yamaha_receiver_main_zone",
-            "port": port,
-            "enabled": enabled,
-        }
-
-        self.hass.services.call(yamaha.DOMAIN, yamaha.SERVICE_ENABLE_OUTPUT, data, True)
-
-    def create_receiver(self, mock_rxv):
-        """Create a mocked receiver."""
-        mock_rxv.return_value = self.device
-
-        config = {"media_player": {"platform": "yamaha", "host": "127.0.0.1"}}
-
-        assert setup_component(self.hass, mp.DOMAIN, config)
-
-    @patch("rxv.RXV")
-    def test_enable_output(self, mock_rxv):
-        """Test enabling and disabling outputs."""
-        self.create_receiver(mock_rxv)
-
-        self.enable_output("hdmi1", True)
-        self.main_zone.enable_output.assert_called_with("hdmi1", True)
-
-        self.enable_output("hdmi2", False)
-        self.main_zone.enable_output.assert_called_with("hdmi2", False)'''
+            aftv = setup(
+                "127.0.0.1:5555", adb_server_ip="127.0.0.1", device_class="firetv"
+            )
+            self.aftv = FireTVDevice(aftv, "Fake Fire TV", {}, True, None, None)
