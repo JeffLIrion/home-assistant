@@ -38,10 +38,6 @@ class AdbAvailable:
         """Send an ADB shell command (ADB server implementation)."""
         pass
 
-    # def Shell(self, cmd):
-    #    """Send an ADB shell command (Python ADB implementation)."""
-    #    pass
-
 
 class AdbUnavailable:
     """A class with ADB shell methods that raise errors."""
@@ -53,10 +49,6 @@ class AdbUnavailable:
     def shell(self, cmd):
         """Raise an error that pertains to the Python ADB implementation."""
         raise ConnectionResetError
-
-    # def Shell(self, cmd):
-    #    """Raise an error that pertains to the ADB server implementation."""
-    #    raise AttributeError
 
 
 class TestAndroidTVPythonImplementation(unittest.TestCase):
