@@ -14,8 +14,26 @@ from homeassistant.components.androidtv.media_player import (
 # from homeassistant.components.yamaha import media_player as yamaha
 from tests.common import get_test_home_assistant
 
+from socket import error as socket_error
+
 
 _LOGGER = logging.getLogger(__name__)
+
+
+RECONNECT_LOGS = [
+    "ERROR:homeassistant.components.androidtv.media_player:Failed to execute an ADB command. ADB connection re-establishing attempt in the next update. Error: ",
+    "WARNING:androidtv.basetv:Couldn't connect to host 127.0.0.1:5555, error: Timed out trying to connect to ADB device.",
+]
+
+
+def connect_device_success(self, *args, **kwargs):
+    """TODO."""
+    return self
+
+
+def connect_device_fail(self, *args, **kwargs):
+    """TODO."""
+    raise socket_error
 
 
 def connect(self, always_log_errors=False):
@@ -72,40 +90,105 @@ CONFIG_PYTHON_ADB = {
 }
 
 
+"""class AdbAvailable:
+    def shell(self, cmd):
+        raise NotImplementedError
+
+    def Shell(self, cmd):
+        raise NotImplementedError
+
+
+class AdbUnavailable:
+    def shell(self, cmd):
+        raise AttributeError
+
+    def Shell(self, cmd):
+        raise ConnectionResetError"""
+
+
 class TestAndroidTV(unittest.TestCase):
     """Test the androidtv media player for an Android TV device."""
 
     def setUp(self):
         """Set up an `AndroidTVDevice` media player."""
-        with patch("androidtv.basetv.BaseTV.connect", connect), patch(
-            "androidtv.basetv.BaseTV._adb_shell_python_adb", return_value=None
-        ):
+        with patch(
+            "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success
+        ), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
             atv = setup("127.0.0.1:5555", device_class="androidtv")
             self.atv = AndroidTVDevice(atv, "Fake Android TV", {}, None, None)
 
-    '''def test_reconnect(self):
-        """Test the update method."""
-        with self.assertLogs(level=logging.ERROR) as logs:
-            with patch("androidtv.basetv.BaseTV.connect", connect_fail), patch("androidtv.basetv.BaseTV._adb_shell_python_adb", adb_shell_python_adb_error):
-                self.atv.update()
-                for _ in range(5):
-                    _LOGGER.critical(self.atv.available)
-                    self.atv.update()
-                    self.atv.aftv.connect()
-                    self.assertTrue(not self.atv.aftv.available)
-                    self.assertTrue(not self.atv.available)
-            with patch.object(self.atv.aftv, "connect", connect_fail),
-                patch.object(self.atv.aftv, "adb_shell", adb_shell_python_adb_error):
-                #with patch("androidtv.basetv.BaseTV.connect", connect_fail), patch(
-                #    "androidtv.basetv.BaseTV._adb_shell_python_adb", adb_shell_python_adb_error
-                #):
-                for _ in range(5):
-                    _LOGGER.critical(self.atv.available)
-                    self.atv.update()
-                    self.assertTrue(not self.atv.available)
+    def test_dummy(self):
+        """Pass."""
+        self.assertTrue(True)
 
-        #self.assertEqual(logs, [])
-        #self.assertTrue(False)'''
+    def test_reconnect(self):
+        """Test that the error and reconnection attempts are logged correctly.
+
+        "Handles device/service unavailable. Log a warning once when
+        unavailable, log once when reconnected."
+
+        https://developers.home-assistant.io/docs/en/integration_quality_scale_index.html
+        """
+        with self.assertLogs(level=logging.WARNING) as logs:
+            with patch(
+                "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_fail
+            ), patch("adb.adb_commands.AdbCommands.Shell", adb_shell_python_adb_error):
+                for _ in range(5):
+                    self.atv.update()
+
+        assert len(logs.output) == 2
+        assert logs.output[0].startswith("ERROR")
+        assert logs.output[1].startswith("WARNING")
+
+        with self.assertLogs(level=logging.DEBUG) as logs:
+            with patch(
+                "adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success
+            ), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
+                for _ in range(1):
+                    self.atv.update()
+
+        assert (
+            "ADB connection to {} successfully established".format(self.atv.aftv.host)
+            in logs.output[0]
+        )
+
+
+'''class TestAndroidTVServer(unittest.TestCase):
+    """Test the androidtv media player for an Android TV device."""
+
+    def setUp(self):
+        """Set up an `AndroidTVDevice` media player."""
+        with patch("adb_messenger.client.Client.device", return_value=None), patch("adb.adb_commands.AdbCommands.Shell", return_value=""):
+            atv = setup("127.0.0.1:5555", adb_server_ip="127.0.0.1", device_class="androidtv")
+            self.atv = AndroidTVDevice(atv, "Fake Android TV", {}, None, None)
+
+    def test_dummy(self):
+        """Pass."""
+        self.assertTrue(True)
+
+    def test_reconnect(self):
+        """Test that the error and reconnection attempts are logged correctly.
+
+        "Handles device/service unavailable. Log a warning once when
+        unavailable, log once when reconnected."
+
+        https://developers.home-assistant.io/docs/en/integration_quality_scale_index.html
+        """
+        with self.assertLogs(level=logging.WARNING) as logs:
+            with patch("adb_messenger.client.Client.device.adb_commands.AdbCommands.ConnectDevice", connect_device_fail), patch("adb.adb_commands.AdbCommands.Shell", adb_shell_python_adb_error):
+                for _ in range(5):
+                    self.atv.update()
+
+        assert len(logs.output) == 2
+        assert logs.output[0].startswith("ERROR")
+        assert logs.output[1].startswith("WARNING")
+
+        with self.assertLogs(level=logging.DEBUG) as logs:
+            with patch("adb.adb_commands.AdbCommands.ConnectDevice", connect_device_success), patch("adb.adb_commands.AdbCommands.Shell", return_value=True):
+                for _ in range(1):
+                    self.atv.update()
+
+        assert "ADB connection to {} successfully established".format(self.atv.aftv.host) in logs.output[0]'''
 
 
 class TestAndroidTV2(unittest.TestCase):
