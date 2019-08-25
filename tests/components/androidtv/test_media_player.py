@@ -114,6 +114,10 @@ class AdbAvailable:
 class AdbUnavailable:
     """A class with ADB shell methods that raise errors."""
 
+    def __bool__(self):
+        """Return `False` to indicate that the ADB connection is unavailable."""
+        return False
+
     def shell(self, cmd):
         """Raise an error that pertains to the Python ADB implementation."""
         raise ConnectionResetError
@@ -152,6 +156,8 @@ class TestAndroidTV(unittest.TestCase):
             ), patch("adb.adb_commands.AdbCommands.Shell", adb_shell_python_adb_error):
                 for _ in range(5):
                     self.atv.update()
+                    self.assertFalse(self.atv.available)
+                    self.assertIsNone(self.atv.state)
 
         assert len(logs.output) == 2
         assert logs.output[0].startswith("ERROR")
@@ -186,12 +192,18 @@ class TestAndroidTVServer(unittest.TestCase):
             self.atv = AndroidTVDevice(atv, "Fake Android TV", {}, None, None)
             assert self.atv.available
             assert self.atv.aftv.available
+            assert self.atv._available
+            assert self.atv.aftv._available
+            _LOGGER.critical("self.atv._available = %s", self.atv._available)
+            _LOGGER.critical("self.atv.aftv._available = %s", self.atv.aftv._available)
+            _LOGGER.critical("self.atv.available = %s", self.atv.available)
+            _LOGGER.critical("self.atv.aftv.available = %s", self.atv.aftv.available)
 
     def test_dummy(self):
         """Pass."""
         self.assertTrue(True)
 
-    '''def test_reconnect(self):
+    def test_reconnect(self):
         """Test that the error and reconnection attempts are logged correctly.
 
         "Handles device/service unavailable. Log a warning once when
@@ -200,22 +212,43 @@ class TestAndroidTVServer(unittest.TestCase):
         https://developers.home-assistant.io/docs/en/integration_quality_scale_index.html
         """
         with self.assertLogs(level=logging.WARNING) as logs:
-            with patch("adb_messenger.client.Client.device", return_value=AdbUnavailable()), patch("{}.AdbAvailable.shell".format(__name__), adb_shell_adb_server_error):
-                for _ in range(3):
+            with patch(
+                "adb_messenger.client.Client.device", return_value=AdbUnavailable()
+            ), patch(
+                "{}.AdbAvailable.shell".format(__name__), adb_shell_adb_server_error
+            ):
+                for i in range(3):
+                    # _LOGGER.critical("%d) self.atv._available = %s", i, self.atv._available)
+                    # _LOGGER.critical("   self.atv.aftv._available = %s", self.atv.aftv._available)
                     self.atv.update()
-                    assert not self.atv.available
-                    assert not self.atv.aftv.available
+                    # _LOGGER.critical("   self.atv.available = %s", self.atv.available)
+                    # _LOGGER.critical("   self.atv.aftv.available = %s", self.atv.aftv.available)
+                    # assert not self.atv.available
+                    # assert not self.atv.aftv.available
+                    self.assertFalse(self.atv.available)
+                    self.assertIsNone(self.atv.state)
 
         _LOGGER.critical(logs.output)
         assert len(logs.output) == 2
         assert logs.output[0].startswith("ERROR")
         assert logs.output[1].startswith("WARNING")
+        # self.assertTrue(False)
 
         with self.assertLogs(level=logging.DEBUG) as logs:
-            with patch("adb_messenger.client.Client.device", return_value=AdbAvailable()):#, patch("{}.shell".format(__name__), return_value=""):
+            with patch(
+                "adb_messenger.client.Client.device", return_value=AdbAvailable()
+            ):  # , patch("{}.shell".format(__name__), return_value=""):
                 self.atv.update()
 
-        assert "ADB connection to {} successfully established".format(self.atv.aftv.host) in logs.output[0]'''
+        _LOGGER.critical(logs.output[0])
+        assert (
+            "ADB connection to {} via ADB server {}:{} successfully established".format(
+                self.atv.aftv.host,
+                self.atv.aftv.adb_server_ip,
+                self.atv.aftv.adb_server_port,
+            )
+            in logs.output[0]
+        )
 
 
 '''class TestAndroidTV2(unittest.TestCase):
