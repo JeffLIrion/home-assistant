@@ -12,6 +12,7 @@ from adb_shell.exceptions import (
 from androidtv import setup, ha_state_detection_rules_validator
 from androidtv.constants import APPS, KEYS
 
+from homeassistant.components.androidtv.const import DOMAIN
 from homeassistant.components.media_player import MediaPlayerDevice, PLATFORM_SCHEMA
 from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK,
@@ -26,8 +27,6 @@ from homeassistant.components.media_player.const import (
     SUPPORT_VOLUME_STEP,
 )
 from homeassistant.const import (
-    ATTR_COMMAND,
-    ATTR_ENTITY_ID,
     CONF_DEVICE_CLASS,
     CONF_HOST,
     CONF_NAME,
@@ -40,8 +39,6 @@ from homeassistant.const import (
 )
 from homeassistant.exceptions import PlatformNotReady
 import homeassistant.helpers.config_validation as cv
-
-ANDROIDTV_DOMAIN = "androidtv"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,13 +84,6 @@ DEVICE_ANDROIDTV = "androidtv"
 DEVICE_FIRETV = "firetv"
 DEVICE_CLASSES = [DEFAULT_DEVICE_CLASS, DEVICE_ANDROIDTV, DEVICE_FIRETV]
 
-SERVICE_ADB_COMMAND = "adb_command"
-
-SERVICE_ADB_COMMAND_SCHEMA = vol.Schema(
-    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Required(ATTR_COMMAND): cv.string}
-)
-
-
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_HOST): cv.string,
@@ -127,7 +117,7 @@ ANDROIDTV_STATES = {
 
 def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the Android TV / Fire TV platform."""
-    hass.data.setdefault(ANDROIDTV_DOMAIN, {})
+    hass.data.setdefault(DOMAIN, {})
 
     host = f"{config[CONF_HOST]}:{config[CONF_PORT]}"
 
@@ -177,7 +167,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         _LOGGER.warning("Could not connect to %s at %s %s", device_name, host, adb_log)
         raise PlatformNotReady
 
-    if host in hass.data[ANDROIDTV_DOMAIN]:
+    if host in hass.data[DOMAIN]:
         _LOGGER.warning("Platform already setup on %s, skipping", host)
     else:
         if aftv.DEVICE_CLASS == DEVICE_ANDROIDTV:
@@ -202,39 +192,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
         add_entities([device])
         _LOGGER.debug("Setup %s at %s %s", device_name, host, adb_log)
-        hass.data[ANDROIDTV_DOMAIN][host] = device
-
-    if hass.services.has_service(ANDROIDTV_DOMAIN, SERVICE_ADB_COMMAND):
-        return
-
-    def service_adb_command(service):
-        """Dispatch service calls to target entities."""
-        cmd = service.data.get(ATTR_COMMAND)
-        entity_id = service.data.get(ATTR_ENTITY_ID)
-        target_devices = [
-            dev
-            for dev in hass.data[ANDROIDTV_DOMAIN].values()
-            if dev.entity_id in entity_id
-        ]
-
-        for target_device in target_devices:
-            output = target_device.adb_command(cmd)
-
-            # log the output, if there is any
-            if output:
-                _LOGGER.info(
-                    "Output of command '%s' from '%s': %s",
-                    cmd,
-                    target_device.entity_id,
-                    output,
-                )
-
-    hass.services.register(
-        ANDROIDTV_DOMAIN,
-        SERVICE_ADB_COMMAND,
-        service_adb_command,
-        schema=SERVICE_ADB_COMMAND_SCHEMA,
-    )
+        hass.data[DOMAIN][host] = device
 
 
 def adb_decorator(override_available=False):
