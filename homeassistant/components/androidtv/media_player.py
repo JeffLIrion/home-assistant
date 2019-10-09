@@ -134,17 +134,25 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     host = f"{config[CONF_HOST]}:{config[CONF_PORT]}"
 
     if CONF_ADB_SERVER_IP not in config:
-        if CONF_ADBKEY not in config:
-            # Generate ADB key files
-            adbkey = hass.config.path(STORAGE_DIR, "androidtv_adbkey")
-
         # Use "adb_shell" (Python ADB implementation)
-        adb_log = "using Python ADB implementation " + (
-            f"with adbkey='{config[CONF_ADBKEY]}'"
-            if CONF_ADBKEY in config
-            else "without adbkey authentication"
-        )
-        if CONF_ADBKEY in config:
+        if CONF_ADBKEY not in config:
+            # Generate ADB key files (if they don't exist)
+            adbkey = hass.config.path(STORAGE_DIR, "androidtv_adbkey")
+            if not cv.isfile(adbkey):
+                keygen(adbkey)
+
+            adb_log = f"using Python ADB implementation with adbkey='{adbkey}'"
+
+            aftv = setup(
+                host,
+                adbkey,
+                device_class=config[CONF_DEVICE_CLASS],
+                state_detection_rules=config[CONF_STATE_DETECTION_RULES],
+            )
+
+        else:
+            adb_log = f"using Python ADB implementation with adbkey='{config[CONF_ADBKEY]}'"
+
             aftv = setup(
                 host,
                 config[CONF_ADBKEY],
@@ -152,14 +160,10 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
                 state_detection_rules=config[CONF_STATE_DETECTION_RULES],
             )
 
-        else:
-            aftv = setup(
-                host,
-                device_class=config[CONF_DEVICE_CLASS],
-                state_detection_rules=config[CONF_STATE_DETECTION_RULES],
-            )
     else:
         # Use "pure-python-adb" (communicate with ADB server)
+        adb_log = f"using ADB server at {config[CONF_ADB_SERVER_IP]}:{config[CONF_ADB_SERVER_PORT]}"
+
         aftv = setup(
             host,
             adb_server_ip=config[CONF_ADB_SERVER_IP],
@@ -167,7 +171,6 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
             device_class=config[CONF_DEVICE_CLASS],
             state_detection_rules=config[CONF_STATE_DETECTION_RULES],
         )
-        adb_log = f"using ADB server at {config[CONF_ADB_SERVER_IP]}:{config[CONF_ADB_SERVER_PORT]}"
 
     if not aftv.available:
         # Determine the name that will be used for the device in the log
