@@ -7,6 +7,7 @@ from homeassistant.setup import async_setup_component
 from homeassistant.components.androidtv.media_player import (
     ANDROIDTV_DOMAIN,
     CONF_ADB_SERVER_IP,
+    CONF_ADBKEY,
 )
 from homeassistant.components.media_player.const import DOMAIN
 from homeassistant.const import (
@@ -64,6 +65,26 @@ CONFIG_FIRETV_ADB_SERVER = {
 }
 
 
+def _setup(hass, config):
+    """Perform common setup tasks for the tests."""
+    if CONF_ADB_SERVER_IP not in config[DOMAIN]:
+        patch_key = "python"
+        os.makedirs(hass.config.path(STORAGE_DIR), exist_ok=True)
+        if CONF_ADBKEY in config[DOMAIN]:
+            # Create an empty key file
+            with open(config[DOMAIN][CONF_ADBKEY], "a"):
+                pass
+    else:
+        patch_key = "server"
+
+    if config[DOMAIN].get(CONF_DEVICE_CLASS) != "firetv":
+        entity_id = "media_player.android_tv"
+    else:
+        entity_id = "media_player.fire_tv"
+
+    return patch_key, entity_id
+
+
 async def _test_reconnect(hass, caplog, config):
     """Test that the error and reconnection attempts are logged correctly.
 
@@ -72,16 +93,7 @@ async def _test_reconnect(hass, caplog, config):
 
     https://developers.home-assistant.io/docs/en/integration_quality_scale_index.html
     """
-    if CONF_ADB_SERVER_IP not in config[DOMAIN]:
-        patch_key = "python"
-        os.makedirs(hass.config.path(STORAGE_DIR), exist_ok=True)
-    else:
-        patch_key = "server"
-
-    if config[DOMAIN].get(CONF_DEVICE_CLASS) != "firetv":
-        entity_id = "media_player.android_tv"
-    else:
-        entity_id = "media_player.fire_tv"
+    patch_key, entity_id = _setup(hass, config)
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
@@ -154,16 +166,7 @@ async def _test_adb_shell_returns_none(hass, config):
 
     The state should be `None` and the device should be unavailable.
     """
-    if CONF_ADB_SERVER_IP not in config[DOMAIN]:
-        patch_key = "python"
-        os.makedirs(hass.config.path(STORAGE_DIR), exist_ok=True)
-    else:
-        patch_key = "server"
-
-    if config[DOMAIN].get(CONF_DEVICE_CLASS) != "firetv":
-        entity_id = "media_player.android_tv"
-    else:
-        entity_id = "media_player.fire_tv"
+    patch_key, entity_id = _setup(hass, config)
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
@@ -267,3 +270,21 @@ async def test_adb_shell_returns_none_firetv_adb_server(hass):
 
     """
     assert await _test_adb_shell_returns_none(hass, CONFIG_FIRETV_ADB_SERVER)
+
+
+async def test_setup_with_adbkey(hass, caplog):
+    """Test that setup succeeds when using an ADB key."""
+    config = CONFIG_ANDROIDTV_PYTHON_ADB.copy()
+    config[DOMAIN][CONF_ADBKEY] = hass.config.path(STORAGE_DIR, "androidtv_adbkey")
+    patch_key, _ = _setup(hass, config)
+
+    with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
+        patch_key
+    ], patchers.patch_shell("")[patch_key]:
+        assert await async_setup_component(hass, DOMAIN, config)
+
+    # Cleanup
+    if os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey")):
+        shutil.rmtree(hass.config.path(STORAGE_DIR))
+
+    return True
