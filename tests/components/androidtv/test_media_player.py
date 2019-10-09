@@ -1,5 +1,7 @@
 """The tests for the androidtv platform."""
 import logging
+import os
+import shutil
 
 from homeassistant.setup import async_setup_component
 from homeassistant.components.androidtv.media_player import (
@@ -16,6 +18,7 @@ from homeassistant.const import (
     STATE_OFF,
     STATE_UNAVAILABLE,
 )
+from homeassistant.helpers.storage import STORAGE_DIR
 
 from . import patchers
 
@@ -71,6 +74,7 @@ async def _test_reconnect(hass, caplog, config):
     """
     if CONF_ADB_SERVER_IP not in config[DOMAIN]:
         patch_key = "python"
+        os.makedirs(hass.config.path(STORAGE_DIR), exist_ok=True)
     else:
         patch_key = "server"
 
@@ -83,6 +87,9 @@ async def _test_reconnect(hass, caplog, config):
         patch_key
     ], patchers.patch_shell("")[patch_key]:
         assert await async_setup_component(hass, DOMAIN, config)
+        if patch_key == "python":
+            assert os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
+
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
         assert state is not None
@@ -135,6 +142,10 @@ async def _test_reconnect(hass, caplog, config):
             in caplog.record_tuples[2]
         )
 
+    # Cleanup
+    if os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey")):
+        shutil.rmtree(hass.config.path(STORAGE_DIR))
+
     return True
 
 
@@ -145,6 +156,7 @@ async def _test_adb_shell_returns_none(hass, config):
     """
     if CONF_ADB_SERVER_IP not in config[DOMAIN]:
         patch_key = "python"
+        os.makedirs(hass.config.path(STORAGE_DIR), exist_ok=True)
     else:
         patch_key = "server"
 
@@ -169,6 +181,10 @@ async def _test_adb_shell_returns_none(hass, config):
         state = hass.states.get(entity_id)
         assert state is not None
         assert state.state == STATE_UNAVAILABLE
+
+    # Cleanup
+    if os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey")):
+        shutil.rmtree(hass.config.path(STORAGE_DIR))
 
     return True
 

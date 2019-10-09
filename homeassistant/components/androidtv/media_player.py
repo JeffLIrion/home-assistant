@@ -1,6 +1,7 @@
 """Support for functionality to interact with Android TV / Fire TV devices."""
 import functools
 import logging
+import os
 import voluptuous as vol
 
 from adb_shell.auth.keygen import keygen
@@ -138,7 +139,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         if CONF_ADBKEY not in config:
             # Generate ADB key files (if they don't exist)
             adbkey = hass.config.path(STORAGE_DIR, "androidtv_adbkey")
-            if not cv.isfile(adbkey):
+            if not os.path.isfile(adbkey):
                 keygen(adbkey)
 
             adb_log = f"using Python ADB implementation with adbkey='{adbkey}'"
