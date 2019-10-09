@@ -3,6 +3,7 @@ import functools
 import logging
 import voluptuous as vol
 
+from adb_shell.auth.keygen import keygen
 from adb_shell.exceptions import (
     InvalidChecksumError,
     InvalidCommandError,
@@ -40,6 +41,7 @@ from homeassistant.const import (
 )
 from homeassistant.exceptions import PlatformNotReady
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.storage import STORAGE_DIR
 
 ANDROIDTV_DOMAIN = "androidtv"
 
@@ -132,6 +134,10 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     host = f"{config[CONF_HOST]}:{config[CONF_PORT]}"
 
     if CONF_ADB_SERVER_IP not in config:
+        if CONF_ADBKEY not in config:
+            # Generate ADB key files
+            adbkey = hass.config.path(STORAGE_DIR, "androidtv_adbkey")
+
         # Use "adb_shell" (Python ADB implementation)
         adb_log = "using Python ADB implementation " + (
             f"with adbkey='{config[CONF_ADBKEY]}'"
