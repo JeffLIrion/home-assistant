@@ -151,7 +151,9 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
             )
 
         else:
-            adb_log = f"using Python ADB implementation with adbkey='{config[CONF_ADBKEY]}'"
+            adb_log = (
+                f"using Python ADB implementation with adbkey='{config[CONF_ADBKEY]}'"
+            )
 
             aftv = setup(
                 host,
