@@ -71,7 +71,7 @@ def _setup(hass, config):
         patch_key = "python"
         os.makedirs(hass.config.path(STORAGE_DIR), exist_ok=True)
         if CONF_ADBKEY in config[DOMAIN]:
-            # Create an empty key file
+            # If "adbkey" is in the config, create the file
             with open(config[DOMAIN][CONF_ADBKEY], "a"):
                 pass
     else:
@@ -101,6 +101,8 @@ async def _test_reconnect(hass, caplog, config):
         assert await async_setup_component(hass, DOMAIN, config)
         if patch_key == "python":
             assert os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
+        else:
+            assert not os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
 
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
@@ -275,7 +277,7 @@ async def test_adb_shell_returns_none_firetv_adb_server(hass):
 async def test_setup_with_adbkey(hass, caplog):
     """Test that setup succeeds when using an ADB key."""
     config = CONFIG_ANDROIDTV_PYTHON_ADB.copy()
-    config[DOMAIN][CONF_ADBKEY] = hass.config.path(STORAGE_DIR, "androidtv_adbkey")
+    config[DOMAIN][CONF_ADBKEY] = hass.config.path(STORAGE_DIR, "user_provided_adbkey")
     patch_key, _ = _setup(hass, config)
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
@@ -283,8 +285,10 @@ async def test_setup_with_adbkey(hass, caplog):
     ], patchers.patch_shell("")[patch_key]:
         assert await async_setup_component(hass, DOMAIN, config)
 
+    # Check that we did not generate a key
+    assert not os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
+
     # Cleanup
-    if os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey")):
-        shutil.rmtree(hass.config.path(STORAGE_DIR))
+    shutil.rmtree(hass.config.path(STORAGE_DIR))
 
     return True
