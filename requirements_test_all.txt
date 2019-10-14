@@ -46,7 +46,7 @@ RtmAPI==0.7.0
 YesssSMS==0.4.1
 
 # homeassistant.components.androidtv
-adb-shell==0.0.5
+adb-shell==0.0.6
 
 # homeassistant.components.adguard
 adguardhome==0.2.1
