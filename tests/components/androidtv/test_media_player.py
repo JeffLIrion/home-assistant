@@ -276,7 +276,7 @@ async def test_setup_with_adbkey(hass, caplog):
         patch_key
     ], patchers.patch_shell("")[patch_key], mock.patch(
         "androidtv.adb_manager.open", patchers.open_priv_pub
-    ):
+    ), patchers.PATCH_ISFILE:
         assert await async_setup_component(hass, DOMAIN, config)
 
     return True

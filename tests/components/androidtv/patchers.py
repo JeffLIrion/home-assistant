@@ -171,3 +171,13 @@ def open_priv_pub(infile, mode="r"):
             yield PRIVATE_KEY
     finally:
         pass
+
+
+def isfile(filepath):
+    """Mock `cv.isfile`."""
+    return filepath
+
+
+PATCH_ISFILE = patch(
+    "homeassistant.components.androidtv.media_player.cv.isfile", isfile
+)
