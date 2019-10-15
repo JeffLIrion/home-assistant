@@ -182,9 +182,5 @@ def isfile(filepath):
     return filepath.endswith("adbkey")
 
 
-def cv_isfile(filepath):
-    """Mock `cv.isfile`."""
-    return filepath
-
-
 PATCH_ISFILE = patch("os.path.isfile", isfile)
+PATCH_ACCESS = patch("os.access", return_value=True)

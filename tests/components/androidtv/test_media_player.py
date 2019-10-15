@@ -1,6 +1,5 @@
 """The tests for the androidtv platform."""
 import logging
-import mock
 
 from adb_shell.auth.keygen import keygen
 
@@ -276,15 +275,7 @@ async def test_setup_with_adbkey(hass):
         patch_key
     ], patchers.patch_shell("")[
         patch_key
-    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_ISFILE, mock.patch(
-        "os.path.isfile", patchers.isfile
-    ), mock.patch(
-        "os.access", return_value=True
-    ), mock.patch(
-        "homeassistant.components.androidtv.media_player.cv.isfile", patchers.cv_isfile
-    ), mock.patch(
-        "homeassistant.helpers.config_validation.isfile", patchers.cv_isfile
-    ):
+    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_ISFILE, patchers.PATCH_ACCESS:
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
