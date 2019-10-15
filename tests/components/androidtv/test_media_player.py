@@ -277,7 +277,13 @@ async def test_setup_with_adbkey(hass):
     ], patchers.patch_shell("")[
         patch_key
     ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_ISFILE, mock.patch(
-        "homeassistant.config.os.path.isfile", patchers.isfile
+        "os.path.isfile", patchers.isfile
+    ), mock.patch(
+        "os.access", return_value=True
+    ), mock.patch(
+        "homeassistant.components.androidtv.media_player.cv.isfile", patchers.cv_isfile
+    ), mock.patch(
+        "homeassistant.helpers.config_validation.isfile", patchers.cv_isfile
     ):
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
