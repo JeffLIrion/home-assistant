@@ -1,7 +1,6 @@
 """The tests for the androidtv platform."""
 import logging
-import os
-import shutil
+import mock
 
 from homeassistant.setup import async_setup_component
 from homeassistant.components.androidtv.media_player import (
@@ -69,11 +68,6 @@ def _setup(hass, config):
     """Perform common setup tasks for the tests."""
     if CONF_ADB_SERVER_IP not in config[DOMAIN]:
         patch_key = "python"
-        os.makedirs(hass.config.path(STORAGE_DIR), exist_ok=True)
-        if CONF_ADBKEY in config[DOMAIN]:
-            # If "adbkey" is in the config, create the file
-            with open(config[DOMAIN][CONF_ADBKEY], "a"):
-                pass
     else:
         patch_key = "server"
 
@@ -97,12 +91,12 @@ async def _test_reconnect(hass, caplog, config):
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
-    ], patchers.patch_shell("")[patch_key]:
+    ], patchers.patch_shell("")[patch_key], mock.patch(
+        "adb_shell.auth.keygen.open", patchers.open_priv_pub
+    ), mock.patch(
+        "androidtv.adb_manager.open", patchers.open_priv_pub
+    ):
         assert await async_setup_component(hass, DOMAIN, config)
-        if patch_key == "python":
-            assert os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
-        else:
-            assert not os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
 
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
@@ -114,7 +108,7 @@ async def _test_reconnect(hass, caplog, config):
 
     with patchers.patch_connect(False)[patch_key], patchers.patch_shell(error=True)[
         patch_key
-    ]:
+    ], mock.patch("androidtv.adb_manager.open", patchers.open_priv_pub):
         for _ in range(5):
             await hass.helpers.entity_component.async_update_entity(entity_id)
             state = hass.states.get(entity_id)
@@ -126,7 +120,9 @@ async def _test_reconnect(hass, caplog, config):
     assert caplog.record_tuples[1][1] == logging.WARNING
 
     caplog.set_level(logging.DEBUG)
-    with patchers.patch_connect(True)[patch_key], patchers.patch_shell("1")[patch_key]:
+    with patchers.patch_connect(True)[patch_key], patchers.patch_shell("1")[
+        patch_key
+    ], mock.patch("androidtv.adb_manager.open", patchers.open_priv_pub):
         # Update 1 will reconnect
         await hass.helpers.entity_component.async_update_entity(entity_id)
 
@@ -156,10 +152,6 @@ async def _test_reconnect(hass, caplog, config):
             in caplog.record_tuples[2]
         )
 
-    # Cleanup
-    if os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey")):
-        shutil.rmtree(hass.config.path(STORAGE_DIR))
-
     return True
 
 
@@ -172,7 +164,11 @@ async def _test_adb_shell_returns_none(hass, config):
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
-    ], patchers.patch_shell("")[patch_key]:
+    ], patchers.patch_shell("")[patch_key], mock.patch(
+        "adb_shell.auth.keygen.open", patchers.open_priv_pub
+    ), mock.patch(
+        "androidtv.adb_manager.open", patchers.open_priv_pub
+    ):
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
@@ -181,15 +177,11 @@ async def _test_adb_shell_returns_none(hass, config):
 
     with patchers.patch_shell(None)[patch_key], patchers.patch_shell(error=True)[
         patch_key
-    ]:
+    ], mock.patch("androidtv.adb_manager.open", patchers.open_priv_pub):
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
         assert state is not None
         assert state.state == STATE_UNAVAILABLE
-
-    # Cleanup
-    if os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey")):
-        shutil.rmtree(hass.config.path(STORAGE_DIR))
 
     return True
 
@@ -282,13 +274,9 @@ async def test_setup_with_adbkey(hass, caplog):
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
-    ], patchers.patch_shell("")[patch_key]:
+    ], patchers.patch_shell("")[patch_key], mock.patch(
+        "androidtv.adb_manager.open", patchers.open_priv_pub
+    ):
         assert await async_setup_component(hass, DOMAIN, config)
-
-    # Check that we did not generate a key
-    assert not os.path.isfile(hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
-
-    # Cleanup
-    shutil.rmtree(hass.config.path(STORAGE_DIR))
 
     return True

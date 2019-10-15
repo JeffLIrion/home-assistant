@@ -1,5 +1,6 @@
 """Define patches used for androidtv tests."""
 
+from contextlib import contextmanager
 from socket import error as socket_error
 from unittest.mock import patch
 
@@ -128,3 +129,45 @@ def patch_shell(response=None, error=False):
 
 
 PATCH_ADB_DEVICE = patch("androidtv.adb_manager.AdbDevice", AdbDeviceFake)
+
+
+class FileReadWrite:
+    """Mock an opened file that can be read and written to."""
+
+    def __init__(self):
+        """Initialize a `FileReadWrite` instance."""
+        self._content = b""
+        self.mode = "r"
+
+    def read(self):
+        """Read `self._content`."""
+        if self.mode == "r":
+            if not isinstance(self._content, str):
+                return self._content.decode()
+            return self._content
+
+        if isinstance(self._content, str):
+            return self._content.encode("utf-8")
+        return self._content
+
+    def write(self, content):
+        """Write `self._content`."""
+        self._content = content
+
+
+PRIVATE_KEY = FileReadWrite()
+PUBLIC_KEY = FileReadWrite()
+
+
+@contextmanager
+def open_priv_pub(infile, mode="r"):
+    """Open a `FileReadWrite` object."""
+    try:
+        if infile.endswith(".pub"):
+            PUBLIC_KEY.mode = mode
+            yield PUBLIC_KEY
+        else:
+            PRIVATE_KEY.mode = mode
+            yield PRIVATE_KEY
+    finally:
+        pass
