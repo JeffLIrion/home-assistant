@@ -91,7 +91,7 @@ async def _test_reconnect(hass, caplog, config):
         patch_key
     ], patchers.patch_shell("")[
         patch_key
-    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
+    ], patchers.PATCH_KEYGEN, patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
         assert await async_setup_component(hass, DOMAIN, config)
 
         await hass.helpers.entity_component.async_update_entity(entity_id)
@@ -162,7 +162,7 @@ async def _test_adb_shell_returns_none(hass, config):
         patch_key
     ], patchers.patch_shell("")[
         patch_key
-    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
+    ], patchers.PATCH_KEYGEN, patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
@@ -270,7 +270,7 @@ async def test_setup_with_adbkey(hass):
         patch_key
     ], patchers.patch_shell("")[
         patch_key
-    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_ISFILE, patchers.PATCH_ACCESS, patchers.PATCH_SIGNER:
+    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER, patchers.PATCH_ISFILE, patchers.PATCH_ACCESS:
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
