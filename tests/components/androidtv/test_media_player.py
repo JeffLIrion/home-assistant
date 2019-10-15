@@ -2,6 +2,8 @@
 import logging
 import mock
 
+from adb_shell.auth.keygen import keygen
+
 from homeassistant.setup import async_setup_component
 from homeassistant.components.androidtv.media_player import (
     ANDROIDTV_DOMAIN,
@@ -18,7 +20,6 @@ from homeassistant.const import (
     STATE_OFF,
     STATE_UNAVAILABLE,
 )
-from homeassistant.helpers.storage import STORAGE_DIR
 
 from . import patchers
 
@@ -91,11 +92,9 @@ async def _test_reconnect(hass, caplog, config):
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
-    ], patchers.patch_shell("")[patch_key], mock.patch(
-        "adb_shell.auth.keygen.open", patchers.open_priv_pub
-    ), mock.patch(
-        "androidtv.adb_manager.open", patchers.open_priv_pub
-    ):
+    ], patchers.patch_shell("")[
+        patch_key
+    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN:
         assert await async_setup_component(hass, DOMAIN, config)
 
         await hass.helpers.entity_component.async_update_entity(entity_id)
@@ -108,7 +107,7 @@ async def _test_reconnect(hass, caplog, config):
 
     with patchers.patch_connect(False)[patch_key], patchers.patch_shell(error=True)[
         patch_key
-    ], mock.patch("androidtv.adb_manager.open", patchers.open_priv_pub):
+    ], patchers.PATCH_ANDROIDTV_OPEN:
         for _ in range(5):
             await hass.helpers.entity_component.async_update_entity(entity_id)
             state = hass.states.get(entity_id)
@@ -122,7 +121,7 @@ async def _test_reconnect(hass, caplog, config):
     caplog.set_level(logging.DEBUG)
     with patchers.patch_connect(True)[patch_key], patchers.patch_shell("1")[
         patch_key
-    ], mock.patch("androidtv.adb_manager.open", patchers.open_priv_pub):
+    ], patchers.PATCH_ANDROIDTV_OPEN:
         # Update 1 will reconnect
         await hass.helpers.entity_component.async_update_entity(entity_id)
 
@@ -164,11 +163,9 @@ async def _test_adb_shell_returns_none(hass, config):
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
-    ], patchers.patch_shell("")[patch_key], mock.patch(
-        "adb_shell.auth.keygen.open", patchers.open_priv_pub
-    ), mock.patch(
-        "androidtv.adb_manager.open", patchers.open_priv_pub
-    ):
+    ], patchers.patch_shell("")[
+        patch_key
+    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN:
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
@@ -177,7 +174,7 @@ async def _test_adb_shell_returns_none(hass, config):
 
     with patchers.patch_shell(None)[patch_key], patchers.patch_shell(error=True)[
         patch_key
-    ], mock.patch("androidtv.adb_manager.open", patchers.open_priv_pub):
+    ], patchers.PATCH_ANDROIDTV_OPEN:
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
         assert state is not None
@@ -266,17 +263,26 @@ async def test_adb_shell_returns_none_firetv_adb_server(hass):
     assert await _test_adb_shell_returns_none(hass, CONFIG_FIRETV_ADB_SERVER)
 
 
-async def test_setup_with_adbkey(hass, caplog):
+async def test_setup_with_adbkey(hass):
     """Test that setup succeeds when using an ADB key."""
     config = CONFIG_ANDROIDTV_PYTHON_ADB.copy()
-    config[DOMAIN][CONF_ADBKEY] = hass.config.path(STORAGE_DIR, "user_provided_adbkey")
-    patch_key, _ = _setup(hass, config)
+    config[DOMAIN][CONF_ADBKEY] = hass.config.path("user_provided_adbkey")
+    patch_key, entity_id = _setup(hass, config)
+
+    with patchers.PATCH_KEYGEN_OPEN:
+        keygen(config[DOMAIN][CONF_ADBKEY])
 
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
-    ], patchers.patch_shell("")[patch_key], mock.patch(
-        "androidtv.adb_manager.open", patchers.open_priv_pub
-    ), patchers.PATCH_ISFILE:
+    ], patchers.patch_shell("")[
+        patch_key
+    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_ISFILE, mock.patch(
+        "homeassistant.config.os.path.isfile", patchers.isfile
+    ):
         assert await async_setup_component(hass, DOMAIN, config)
+        await hass.helpers.entity_component.async_update_entity(entity_id)
+        state = hass.states.get(entity_id)
+        assert state is not None
+        assert state.state == STATE_OFF
 
     return True

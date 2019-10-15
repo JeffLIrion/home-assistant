@@ -173,11 +173,13 @@ def open_priv_pub(infile, mode="r"):
         pass
 
 
+PATCH_ANDROIDTV_OPEN = patch("androidtv.adb_manager.open", open_priv_pub)
+PATCH_KEYGEN_OPEN = patch("adb_shell.auth.keygen.open", open_priv_pub)
+
+
 def isfile(filepath):
-    """Mock `cv.isfile`."""
-    return filepath
+    """Mock `os.path.isfile`."""
+    return filepath.endswith("adbkey")
 
 
-PATCH_ISFILE = patch(
-    "homeassistant.components.androidtv.media_player.cv.isfile", isfile
-)
+PATCH_ISFILE = patch("os.path.isfile", isfile)
