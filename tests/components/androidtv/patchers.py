@@ -129,6 +129,7 @@ def patch_shell(response=None, error=False):
 
 
 PATCH_ADB_DEVICE = patch("androidtv.adb_manager.AdbDevice", AdbDeviceFake)
+PATCH_SIGNER = patch("androidtv.adb_manager.PythonRSASigner", return_value=None)
 
 
 class FileReadWrite:

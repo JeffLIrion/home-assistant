@@ -1,8 +1,6 @@
 """The tests for the androidtv platform."""
 import logging
 
-from adb_shell.auth.keygen import keygen
-
 from homeassistant.setup import async_setup_component
 from homeassistant.components.androidtv.media_player import (
     ANDROIDTV_DOMAIN,
@@ -93,7 +91,7 @@ async def _test_reconnect(hass, caplog, config):
         patch_key
     ], patchers.patch_shell("")[
         patch_key
-    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN:
+    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
         assert await async_setup_component(hass, DOMAIN, config)
 
         await hass.helpers.entity_component.async_update_entity(entity_id)
@@ -106,7 +104,7 @@ async def _test_reconnect(hass, caplog, config):
 
     with patchers.patch_connect(False)[patch_key], patchers.patch_shell(error=True)[
         patch_key
-    ], patchers.PATCH_ANDROIDTV_OPEN:
+    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
         for _ in range(5):
             await hass.helpers.entity_component.async_update_entity(entity_id)
             state = hass.states.get(entity_id)
@@ -120,7 +118,7 @@ async def _test_reconnect(hass, caplog, config):
     caplog.set_level(logging.DEBUG)
     with patchers.patch_connect(True)[patch_key], patchers.patch_shell("1")[
         patch_key
-    ], patchers.PATCH_ANDROIDTV_OPEN:
+    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
         # Update 1 will reconnect
         await hass.helpers.entity_component.async_update_entity(entity_id)
 
@@ -164,7 +162,7 @@ async def _test_adb_shell_returns_none(hass, config):
         patch_key
     ], patchers.patch_shell("")[
         patch_key
-    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN:
+    ], patchers.PATCH_KEYGEN_OPEN, patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
@@ -173,7 +171,7 @@ async def _test_adb_shell_returns_none(hass, config):
 
     with patchers.patch_shell(None)[patch_key], patchers.patch_shell(error=True)[
         patch_key
-    ], patchers.PATCH_ANDROIDTV_OPEN:
+    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
         assert state is not None
@@ -268,14 +266,11 @@ async def test_setup_with_adbkey(hass):
     config[DOMAIN][CONF_ADBKEY] = hass.config.path("user_provided_adbkey")
     patch_key, entity_id = _setup(hass, config)
 
-    with patchers.PATCH_KEYGEN_OPEN:
-        keygen(config[DOMAIN][CONF_ADBKEY])
-
     with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
         patch_key
     ], patchers.patch_shell("")[
         patch_key
-    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_ISFILE, patchers.PATCH_ACCESS:
+    ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_ISFILE, patchers.PATCH_ACCESS, patchers.PATCH_SIGNER:
         assert await async_setup_component(hass, DOMAIN, config)
         await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
