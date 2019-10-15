@@ -128,8 +128,13 @@ def patch_shell(response=None, error=False):
     }
 
 
+def do_nothing(*args, **kwargs):
+    """Do nothing."""
+
+
 PATCH_ADB_DEVICE = patch("androidtv.adb_manager.AdbDevice", AdbDeviceFake)
-PATCH_SIGNER = patch("androidtv.adb_manager.PythonRSASigner", return_value=None)
+PATCH_SIGNER = patch("androidtv.adb_manager.PythonRSASigner", do_nothing)
+PATCH_KEYGEN = patch("adb_shell.auth.keygen.keygen", do_nothing)
 
 
 class FileReadWrite:
