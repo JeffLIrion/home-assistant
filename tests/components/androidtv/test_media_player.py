@@ -19,6 +19,7 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_NAME,
     CONF_PLATFORM,
+    SERVICE_VOLUME_UP,
     STATE_IDLE,
     STATE_OFF,
     STATE_PLAYING,
@@ -388,3 +389,33 @@ async def test_firetv_select_source_stop_app_id_no_name(hass):
     assert await _test_firetv_select_source(
         hass, "!com.app.test2", "com.app.test2", patchers.PATCH_STOP_APP
     )
+
+
+async def test_androidtv_volume_up(hass):
+    """Test something."""
+    config = CONFIG_ANDROIDTV_ADB_SERVER.copy()
+    patch_key, entity_id = _setup(hass, config)
+
+    with patchers.PATCH_ADB_DEVICE, patchers.patch_connect(True)[
+        patch_key
+    ], patchers.patch_shell("")[patch_key]:
+        assert await async_setup_component(hass, DOMAIN, config)
+        await hass.helpers.entity_component.async_update_entity(entity_id)
+        state = hass.states.get(entity_id)
+        assert state is not None
+        assert state.state == STATE_OFF
+
+    with patchers.patch_shell("")[patch_key]:
+        await hass.services.async_call(
+            DOMAIN, SERVICE_VOLUME_UP, {ATTR_ENTITY_ID: entity_id}, blocking=True,
+        )
+        # method_patch_.assert_called_with(expected_arg)
+
+    # with method_patch as method_patch_:
+    #     await hass.services.async_call(
+    #         DOMAIN,
+    #         SERVICE_SELECT_SOURCE,
+    #         {ATTR_ENTITY_ID: entity_id, ATTR_INPUT_SOURCE: source},
+    #         blocking=True,
+    #     )
+    #     method_patch_.assert_called_with(expected_arg)
