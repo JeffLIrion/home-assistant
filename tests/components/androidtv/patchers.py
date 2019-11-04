@@ -158,5 +158,16 @@ def patch_androidtv_update(state, current_app, device, is_volume_muted, volume_l
     )
 
 
+def patch_androidtv_volume(current_volume, max_volume):
+    """Patch the `BaseTV.volume` property using the provided parameters."""
+
+    def volume(self):
+        """Patch the `BaseTV.volume` property."""
+        self.max_volume = max_volume
+        return current_volume
+
+    return patch("androidtv.basetv.BaseTV.volume", volume)
+
+
 PATCH_LAUNCH_APP = patch("androidtv.firetv.FireTV.launch_app")
 PATCH_STOP_APP = patch("androidtv.firetv.FireTV.stop_app")

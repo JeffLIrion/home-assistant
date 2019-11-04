@@ -405,11 +405,21 @@ async def test_androidtv_volume_up(hass):
         assert state is not None
         assert state.state == STATE_OFF
 
-    with patchers.patch_shell("")[patch_key]:
+    with patchers.patch_androidtv_update(
+        "playing", "com.app.test1", "device", False, None
+    ):
+        await hass.helpers.entity_component.async_update_entity(entity_id)
+        state = hass.states.get(entity_id)
+        assert state is not None
+        assert state.state == STATE_PLAYING
+
+    with patchers.patch_shell(None)[patch_key], patchers.patch_androidtv_volume(59, 60):
         await hass.services.async_call(
             DOMAIN, SERVICE_VOLUME_UP, {ATTR_ENTITY_ID: entity_id}, blocking=True,
         )
-        # method_patch_.assert_called_with(expected_arg)
+        state = hass.states.get(entity_id)
+        assert state is not None
+        assert state.attributes["volume_level"] == 1.0
 
     # with method_patch as method_patch_:
     #     await hass.services.async_call(
