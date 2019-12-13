@@ -1,0 +1,10 @@
+{
+  "domain": "cast_volume_tracker",
+  "name": "Cast Volume Tracker",
+  "documentation": "https://github.com/JeffLIrion/ha-cast_volume_tracker/README.md",
+  "requirements": [],
+  "dependencies": ["cast"],
+  "codeowners": [
+    "@JeffLIrion"
+  ]
+}
