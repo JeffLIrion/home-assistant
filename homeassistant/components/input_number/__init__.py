@@ -11,9 +11,7 @@ from homeassistant.const import (
     CONF_ICON_TEMPLATE,
     CONF_MODE,
     CONF_NAME,
-    CONF_VALUE_TEMPLATE,
     EVENT_HOMEASSISTANT_START,
-    MATCH_ALL,
     SERVICE_RELOAD,
 )
 from homeassistant.core import callback
@@ -24,6 +22,17 @@ from homeassistant.helpers.event import async_track_state_change
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.script import Script
 import homeassistant.helpers.service
+
+from .template_number import (  # SERVICE_SET_VALUE_NO_SCRIPT,
+    CONF_SET_VALUE_SCRIPT,
+    CONF_VALUE_CHANGED_SCRIPT,
+    CONF_VALUE_TEMPLATE,
+    cv_template_number,
+    setup_template_number_entity,
+)
+
+# from .template_number_class import TemplateNumberBase
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,29 +72,6 @@ def _cv_input_number(cfg):
     return cfg
 
 
-# (Start) Template Number
-CONF_SET_VALUE_SCRIPT = "set_value_script"
-CONF_VALUE_CHANGED_SCRIPT = "value_changed_script"
-SERVICE_SET_VALUE_NO_SCRIPT = "set_value_no_script"
-
-
-def _cv_template_number(cfg):
-    """Configure validation helper for template number (voluptuous)."""
-    _cv_input_number(cfg)
-
-    if CONF_VALUE_TEMPLATE in cfg and CONF_SET_VALUE_SCRIPT not in cfg:
-        raise vol.Invalid(
-            "{} cannot be provided without {}".format(
-                CONF_VALUE_TEMPLATE, CONF_SET_VALUE_SCRIPT
-            )
-        )
-
-    return cfg
-
-
-# (End) Template Number
-
-
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: cv.schema_with_slug_keys(
@@ -111,7 +97,7 @@ CONFIG_SCHEMA = vol.Schema(
                     vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
                     # (End) Template Number
                 },
-                _cv_template_number,
+                cv_template_number(_cv_input_number),
             )
         )
     },
@@ -151,11 +137,11 @@ async def async_setup(hass, config):
     )
 
     # (Start) Template Number
-    component.async_register_entity_service(
-        SERVICE_SET_VALUE_NO_SCRIPT,
-        {vol.Required(ATTR_VALUE): vol.Coerce(float)},
-        "async_set_value_no_script",
-    )
+    # component.async_register_entity_service(
+    #    SERVICE_SET_VALUE_NO_SCRIPT,
+    #    {vol.Required(ATTR_VALUE): vol.Coerce(float)},
+    #    "async_set_value_no_script",
+    # )
     # (End) Template Number
 
     component.async_register_entity_service(SERVICE_INCREMENT, {}, "async_increment")
@@ -183,46 +169,18 @@ async def _async_process_config(hass, config):
 
         # (Start) Template Number
         if CONF_SET_VALUE_SCRIPT in cfg:
-            icon_template = cfg.get(CONF_ICON_TEMPLATE)
-            set_value_script = cfg.get(CONF_SET_VALUE_SCRIPT)
-            value_template = cfg.get(CONF_VALUE_TEMPLATE)
-            value_changed_script = cfg.get(CONF_VALUE_CHANGED_SCRIPT)
-
-            # setup the entity ID's for the template
-            template_entity_ids = set()
-            if value_template is not None:
-                temp_ids = value_template.extract_entities()
-                if str(temp_ids) != MATCH_ALL:
-                    template_entity_ids |= set(temp_ids)
-
-            if icon_template is not None:
-                icon_ids = icon_template.extract_entities()
-                if str(icon_ids) != MATCH_ALL:
-                    template_entity_ids |= set(icon_ids)
-
-            entity_ids = cfg.get(CONF_ENTITY_ID, template_entity_ids)
-
-            # Template Number
             entities.append(
-                TemplateNumber(
+                setup_template_number_entity(
+                    TemplateNumber,
+                    hass,
+                    cfg,
                     object_id,
-                    name,
-                    initial,
                     minimum,
                     maximum,
+                    initial,
                     step,
-                    icon,
-                    icon_template,
-                    unit,
-                    mode,
-                    hass,
-                    value_template,
-                    set_value_script,
-                    entity_ids,
-                    value_changed_script,
                 )
             )
-
             continue
         # (End) Template Number
 
