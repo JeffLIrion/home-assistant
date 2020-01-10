@@ -16,7 +16,9 @@ from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.restore_state import RestoreEntity
 import homeassistant.helpers.service
 
-from .template_number import (  # noqa pylint: disable=unused-import
+from .template_number import (
+    CONF_ENTITY_ID,
+    CONF_ICON_TEMPLATE,
     CONF_SET_VALUE_SCRIPT,
     CONF_VALUE_CHANGED_SCRIPT,
     CONF_VALUE_TEMPLATE,
@@ -27,7 +29,7 @@ from .template_number import (  # noqa pylint: disable=unused-import
     async_track_state_change,
     callback,
     cv_template_number,
-    setup_template_number_entity,
+    get_entity_ids,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -85,8 +87,14 @@ CONFIG_SCHEMA = vol.Schema(
                     vol.Optional(CONF_MODE, default=MODE_SLIDER): vol.In(
                         [MODE_BOX, MODE_SLIDER]
                     ),
+                    # (Start) TemplateNumber
+                    vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
+                    vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
+                    vol.Optional(CONF_ICON_TEMPLATE): cv.template,
+                    vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
+                    # (End) TemplateNumber
                 },
-                _cv_input_number,
+                cv_template_number(_cv_input_number),
             )
         )
     },
@@ -100,14 +108,14 @@ async def async_setup(hass, config):
     """Set up an input slider."""
     component = EntityComponent(_LOGGER, DOMAIN, hass)
 
-    entities = await _async_process_config(config)
+    entities = await _async_process_config(hass, config)
 
     async def reload_service_handler(service_call):
         """Remove all entities and load new ones from config."""
         conf = await component.async_prepare_reload()
         if conf is None:
             return
-        new_entities = await _async_process_config(conf)
+        new_entities = await _async_process_config(hass, conf)
         if new_entities:
             await component.async_add_entities(new_entities)
 
@@ -125,6 +133,14 @@ async def async_setup(hass, config):
         "async_set_value",
     )
 
+    # (Start) Template Number
+    component.async_register_entity_service(
+        SERVICE_SET_VALUE_NO_SCRIPT,
+        {vol.Required(ATTR_VALUE): vol.Coerce(float)},
+        "async_set_value_no_script",
+    )
+    # (End) Template Number
+
     component.async_register_entity_service(SERVICE_INCREMENT, {}, "async_increment")
 
     component.async_register_entity_service(SERVICE_DECREMENT, {}, "async_decrement")
@@ -134,7 +150,7 @@ async def async_setup(hass, config):
     return True
 
 
-async def _async_process_config(config):
+async def _async_process_config(hass, config):
     """Process config and create list of entities."""
     entities = []
 
@@ -148,9 +164,30 @@ async def _async_process_config(config):
         unit = cfg.get(ATTR_UNIT_OF_MEASUREMENT)
         mode = cfg.get(CONF_MODE)
 
+        # TemplateNumber
+        icon_template = cfg.get(CONF_ICON_TEMPLATE)
+        set_value_script = cfg.get(CONF_SET_VALUE_SCRIPT)
+        value_template = cfg.get(CONF_VALUE_TEMPLATE)
+        value_changed_script = cfg.get(CONF_VALUE_CHANGED_SCRIPT)
+        entity_ids = get_entity_ids(value_changed_script, icon_template, cfg)
+
         entities.append(
-            InputNumber(
-                object_id, name, initial, minimum, maximum, step, icon, unit, mode
+            TemplateNumber(
+                object_id,
+                name,
+                initial,
+                minimum,
+                maximum,
+                step,
+                icon,
+                unit,
+                mode,
+                icon_template,
+                value_template,
+                set_value_script,
+                entity_ids,
+                value_changed_script,
+                hass,
             )
         )
 
@@ -281,14 +318,14 @@ class TemplateNumber(InputNumber):
         maximum,
         step,
         icon,
-        icon_template,
         unit,
         mode,
-        hass=None,
+        icon_template=None,
         value_template=None,
         set_value_script=None,
         entity_ids=None,
         value_changed_script=None,
+        hass=None,
     ):
         """Initialize a template number."""
         super().__init__(
