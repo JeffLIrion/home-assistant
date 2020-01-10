@@ -3,7 +3,7 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.const import (  # EVENT_HOMEASSISTANT_START,
+from homeassistant.const import (  # noqa pylint: disable=unused-import
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_ENTITY_ID,
     CONF_ICON,
@@ -11,6 +11,7 @@ from homeassistant.const import (  # EVENT_HOMEASSISTANT_START,
     CONF_MODE,
     CONF_NAME,
     CONF_VALUE_TEMPLATE,
+    EVENT_HOMEASSISTANT_START,
     MATCH_ALL,
 )
 
