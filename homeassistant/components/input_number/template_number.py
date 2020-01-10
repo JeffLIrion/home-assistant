@@ -109,6 +109,23 @@ TEMPLATE_NUMBER_SCHEMA_DICT = {
     )'''
 
 
+def get_entity_ids(value_template, icon_template, cfg):
+    """Get the entity IDs for the templates."""
+    # setup the entity ID's for the template
+    template_entity_ids = set()
+    if value_template is not None:
+        temp_ids = value_template.extract_entities()
+        if str(temp_ids) != MATCH_ALL:
+            template_entity_ids |= set(temp_ids)
+
+    if icon_template is not None:
+        icon_ids = icon_template.extract_entities()
+        if str(icon_ids) != MATCH_ALL:
+            template_entity_ids |= set(icon_ids)
+
+    return cfg.get(CONF_ENTITY_ID, template_entity_ids)
+
+
 def setup_template_number_entity(
     constructor, hass, cfg, object_id, minimum, maximum, initial, step
 ):
