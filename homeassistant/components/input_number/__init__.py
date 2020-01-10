@@ -6,34 +6,29 @@ import voluptuous as vol
 from homeassistant.const import (
     ATTR_MODE,
     ATTR_UNIT_OF_MEASUREMENT,
-    CONF_ENTITY_ID,
     CONF_ICON,
-    CONF_ICON_TEMPLATE,
     CONF_MODE,
     CONF_NAME,
     SERVICE_RELOAD,
 )
-from homeassistant.core import callback
-from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.event import async_track_state_change
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.script import Script
 import homeassistant.helpers.service
 
-from .template_number import (
+from .template_number import (  # noqa pylint: disable=unused-import
     CONF_SET_VALUE_SCRIPT,
     CONF_VALUE_CHANGED_SCRIPT,
     CONF_VALUE_TEMPLATE,
     EVENT_HOMEASSISTANT_START,
     SERVICE_SET_VALUE_NO_SCRIPT,
+    Script,
+    TemplateError,
+    async_track_state_change,
+    callback,
     cv_template_number,
     setup_template_number_entity,
 )
-
-# from .template_number_class import TemplateNumberBase
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,15 +85,8 @@ CONFIG_SCHEMA = vol.Schema(
                     vol.Optional(CONF_MODE, default=MODE_SLIDER): vol.In(
                         [MODE_BOX, MODE_SLIDER]
                     ),
-                    # (Start) Template Number
-                    vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
-                    vol.Optional(CONF_SET_VALUE_SCRIPT): cv.SCRIPT_SCHEMA,
-                    vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
-                    vol.Optional(CONF_ICON_TEMPLATE): cv.template,
-                    vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
-                    # (End) Template Number
                 },
-                cv_template_number(_cv_input_number),
+                _cv_input_number,
             )
         )
     },
@@ -112,14 +100,14 @@ async def async_setup(hass, config):
     """Set up an input slider."""
     component = EntityComponent(_LOGGER, DOMAIN, hass)
 
-    entities = await _async_process_config(hass, config)
+    entities = await _async_process_config(config)
 
     async def reload_service_handler(service_call):
         """Remove all entities and load new ones from config."""
         conf = await component.async_prepare_reload()
         if conf is None:
             return
-        new_entities = await _async_process_config(hass, conf)
+        new_entities = await _async_process_config(conf)
         if new_entities:
             await component.async_add_entities(new_entities)
 
@@ -137,14 +125,6 @@ async def async_setup(hass, config):
         "async_set_value",
     )
 
-    # (Start) Template Number
-    component.async_register_entity_service(
-        SERVICE_SET_VALUE_NO_SCRIPT,
-        {vol.Required(ATTR_VALUE): vol.Coerce(float)},
-        "async_set_value_no_script",
-    )
-    # (End) Template Number
-
     component.async_register_entity_service(SERVICE_INCREMENT, {}, "async_increment")
 
     component.async_register_entity_service(SERVICE_DECREMENT, {}, "async_decrement")
@@ -154,7 +134,7 @@ async def async_setup(hass, config):
     return True
 
 
-async def _async_process_config(hass, config):
+async def _async_process_config(config):
     """Process config and create list of entities."""
     entities = []
 
@@ -167,23 +147,6 @@ async def _async_process_config(hass, config):
         icon = cfg.get(CONF_ICON)
         unit = cfg.get(ATTR_UNIT_OF_MEASUREMENT)
         mode = cfg.get(CONF_MODE)
-
-        # (Start) Template Number
-        if CONF_SET_VALUE_SCRIPT in cfg:
-            entities.append(
-                setup_template_number_entity(
-                    TemplateNumber,
-                    hass,
-                    cfg,
-                    object_id,
-                    minimum,
-                    maximum,
-                    initial,
-                    step,
-                )
-            )
-            continue
-        # (End) Template Number
 
         entities.append(
             InputNumber(
@@ -303,20 +266,6 @@ class InputNumber(RestoreEntity):
             )
             return
         self._current_value = new_value
-        await self.async_update_ha_state()
-
-    async def async_set_value_no_script(self, value):
-        """Set new value."""
-        num_value = float(value)
-        if num_value < self._minimum or num_value > self._maximum:
-            _LOGGER.warning(
-                "Invalid value: %s (range %s - %s)",
-                num_value,
-                self._minimum,
-                self._maximum,
-            )
-            return
-        self._current_value = num_value
         await self.async_update_ha_state()
 
 

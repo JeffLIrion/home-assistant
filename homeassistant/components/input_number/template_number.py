@@ -14,11 +14,13 @@ from homeassistant.const import (  # noqa pylint: disable=unused-import
     EVENT_HOMEASSISTANT_START,
     MATCH_ALL,
 )
-
-# from homeassistant.core import callback
-# from homeassistant.exceptions import TemplateError
-# from homeassistant.helpers.event import async_track_state_change
-# from homeassistant.helpers.script import Script
+from homeassistant.core import callback  # noqa pylint: disable=unused-import
+from homeassistant.exceptions import TemplateError  # noqa pylint: disable=unused-import
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.event import (  # noqa pylint: disable=unused-import
+    async_track_state_change,
+)
+from homeassistant.helpers.script import Script  # noqa pylint: disable=unused-import
 
 # from homeassistant.components.input_number import (
 #    #InputNumber,
@@ -36,7 +38,16 @@ CONF_VALUE_CHANGED_SCRIPT = "value_changed_script"
 SERVICE_SET_VALUE_NO_SCRIPT = "set_value_no_script"
 
 
-def _cv_template_number(cfg):
+TEMPLATE_NUMBER_SCHEMA_DICT = {
+    vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
+    vol.Optional(CONF_SET_VALUE_SCRIPT): cv.SCRIPT_SCHEMA,
+    vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
+    vol.Optional(CONF_ICON_TEMPLATE): cv.template,
+    vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
+}
+
+
+'''def _cv_template_number(cfg):
     """Configure validation helper for template number (voluptuous)."""
     # _cv_input_number(cfg)
 
@@ -47,7 +58,7 @@ def _cv_template_number(cfg):
             )
         )
 
-    return cfg
+    return cfg'''
 
 
 '''def setup_template_number_entity(hass, cfg, object_id):
