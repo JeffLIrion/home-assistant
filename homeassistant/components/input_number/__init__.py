@@ -11,7 +11,6 @@ from homeassistant.const import (
     CONF_ICON_TEMPLATE,
     CONF_MODE,
     CONF_NAME,
-    EVENT_HOMEASSISTANT_START,
     SERVICE_RELOAD,
 )
 from homeassistant.core import callback
@@ -23,10 +22,12 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.script import Script
 import homeassistant.helpers.service
 
-from .template_number import (  # SERVICE_SET_VALUE_NO_SCRIPT,
+from .template_number import (
     CONF_SET_VALUE_SCRIPT,
     CONF_VALUE_CHANGED_SCRIPT,
     CONF_VALUE_TEMPLATE,
+    EVENT_HOMEASSISTANT_START,
+    SERVICE_SET_VALUE_NO_SCRIPT,
     cv_template_number,
     setup_template_number_entity,
 )
@@ -137,11 +138,11 @@ async def async_setup(hass, config):
     )
 
     # (Start) Template Number
-    # component.async_register_entity_service(
-    #    SERVICE_SET_VALUE_NO_SCRIPT,
-    #    {vol.Required(ATTR_VALUE): vol.Coerce(float)},
-    #    "async_set_value_no_script",
-    # )
+    component.async_register_entity_service(
+        SERVICE_SET_VALUE_NO_SCRIPT,
+        {vol.Required(ATTR_VALUE): vol.Coerce(float)},
+        "async_set_value_no_script",
+    )
     # (End) Template Number
 
     component.async_register_entity_service(SERVICE_INCREMENT, {}, "async_increment")
@@ -334,17 +335,17 @@ class TemplateNumber(InputNumber):
         icon_template,
         unit,
         mode,
-        hass,
-        value_template,
-        set_value_script,
-        entity_ids,
-        value_changed_script,
+        hass=None,
+        value_template=None,
+        set_value_script=None,
+        entity_ids=None,
+        value_changed_script=None,
     ):
         """Initialize a template number."""
         super().__init__(
             object_id, name, initial, minimum, maximum, step, icon, unit, mode
         )
-        self.hass = hass
+        self.hass = hass if set_value_script else None
         self._entities = entity_ids
 
         # template
@@ -372,24 +373,27 @@ class TemplateNumber(InputNumber):
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass and register callbacks."""
 
-        @callback
-        def template_number_state_listener(entity, old_state, new_state):
-            """Handle target device state changes."""
-            self.async_schedule_update_ha_state(True)
+        # If this is a true `TemplateNumber`, then listen for state changes
+        if self._set_value_script:
 
-        @callback
-        def template_number_startup(event):
-            """Listen for state changes."""
-            if self._entities:
-                async_track_state_change(
-                    self.hass, self._entities, template_number_state_listener
-                )
+            @callback
+            def template_number_state_listener(entity, old_state, new_state):
+                """Handle target device state changes."""
+                self.async_schedule_update_ha_state(True)
 
-            self.async_schedule_update_ha_state(True)
+            @callback
+            def template_number_startup(event):
+                """Listen for state changes."""
+                if self._entities:
+                    async_track_state_change(
+                        self.hass, self._entities, template_number_state_listener
+                    )
 
-        self.hass.bus.async_listen_once(
-            EVENT_HOMEASSISTANT_START, template_number_startup
-        )
+                self.async_schedule_update_ha_state(True)
+
+            self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_START, template_number_startup
+            )
 
         await super().async_added_to_hass()
         if self._current_value is not None:
