@@ -6,24 +6,31 @@ import voluptuous as vol
 from homeassistant.const import (
     ATTR_MODE,
     ATTR_UNIT_OF_MEASUREMENT,
-    CONF_ENTITY_ID,
     CONF_ICON,
-    CONF_ICON_TEMPLATE,
     CONF_MODE,
     CONF_NAME,
-    CONF_VALUE_TEMPLATE,
-    EVENT_HOMEASSISTANT_START,
-    MATCH_ALL,
     SERVICE_RELOAD,
 )
-from homeassistant.core import callback
-from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.event import async_track_state_change
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.script import Script
 import homeassistant.helpers.service
+
+from .template_number import (
+    CONF_ENTITY_ID,
+    CONF_ICON_TEMPLATE,
+    CONF_SET_VALUE_SCRIPT,
+    CONF_VALUE_CHANGED_SCRIPT,
+    CONF_VALUE_TEMPLATE,
+    EVENT_HOMEASSISTANT_START,
+    SERVICE_SET_VALUE_NO_SCRIPT,
+    Script,
+    TemplateError,
+    async_track_state_change,
+    callback,
+    cv_template_number,
+    get_entity_ids,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,29 +70,6 @@ def _cv_input_number(cfg):
     return cfg
 
 
-# (Start) Template Number
-CONF_SET_VALUE_SCRIPT = "set_value_script"
-CONF_VALUE_CHANGED_SCRIPT = "value_changed_script"
-SERVICE_SET_VALUE_NO_SCRIPT = "set_value_no_script"
-
-
-def _cv_template_number(cfg):
-    """Configure validation helper for template number (voluptuous)."""
-    _cv_input_number(cfg)
-
-    if CONF_VALUE_TEMPLATE in cfg and CONF_SET_VALUE_SCRIPT not in cfg:
-        raise vol.Invalid(
-            "{} cannot be provided without {}".format(
-                CONF_VALUE_TEMPLATE, CONF_SET_VALUE_SCRIPT
-            )
-        )
-
-    return cfg
-
-
-# (End) Template Number
-
-
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: cv.schema_with_slug_keys(
@@ -103,15 +87,14 @@ CONFIG_SCHEMA = vol.Schema(
                     vol.Optional(CONF_MODE, default=MODE_SLIDER): vol.In(
                         [MODE_BOX, MODE_SLIDER]
                     ),
-                    # (Start) Template Number
+                    # (Start) TemplateNumber
                     vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
-                    vol.Optional(CONF_SET_VALUE_SCRIPT): cv.SCRIPT_SCHEMA,
                     vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
                     vol.Optional(CONF_ICON_TEMPLATE): cv.template,
                     vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
-                    # (End) Template Number
+                    # (End) TemplateNumber
                 },
-                _cv_template_number,
+                cv_template_number(_cv_input_number),
             )
         )
     },
@@ -181,54 +164,30 @@ async def _async_process_config(hass, config):
         unit = cfg.get(ATTR_UNIT_OF_MEASUREMENT)
         mode = cfg.get(CONF_MODE)
 
-        # (Start) Template Number
-        if CONF_SET_VALUE_SCRIPT in cfg:
-            icon_template = cfg.get(CONF_ICON_TEMPLATE)
-            set_value_script = cfg.get(CONF_SET_VALUE_SCRIPT)
-            value_template = cfg.get(CONF_VALUE_TEMPLATE)
-            value_changed_script = cfg.get(CONF_VALUE_CHANGED_SCRIPT)
-
-            # setup the entity ID's for the template
-            template_entity_ids = set()
-            if value_template is not None:
-                temp_ids = value_template.extract_entities()
-                if str(temp_ids) != MATCH_ALL:
-                    template_entity_ids |= set(temp_ids)
-
-            if icon_template is not None:
-                icon_ids = icon_template.extract_entities()
-                if str(icon_ids) != MATCH_ALL:
-                    template_entity_ids |= set(icon_ids)
-
-            entity_ids = cfg.get(CONF_ENTITY_ID, template_entity_ids)
-
-            # Template Number
-            entities.append(
-                TemplateNumber(
-                    object_id,
-                    name,
-                    initial,
-                    minimum,
-                    maximum,
-                    step,
-                    icon,
-                    icon_template,
-                    unit,
-                    mode,
-                    hass,
-                    value_template,
-                    set_value_script,
-                    entity_ids,
-                    value_changed_script,
-                )
-            )
-
-            continue
-        # (End) Template Number
+        # TemplateNumber
+        icon_template = cfg.get(CONF_ICON_TEMPLATE)
+        set_value_script = cfg.get(CONF_SET_VALUE_SCRIPT)
+        value_template = cfg.get(CONF_VALUE_TEMPLATE)
+        value_changed_script = cfg.get(CONF_VALUE_CHANGED_SCRIPT)
+        entity_ids = get_entity_ids(value_changed_script, icon_template, cfg)
 
         entities.append(
-            InputNumber(
-                object_id, name, initial, minimum, maximum, step, icon, unit, mode
+            TemplateNumber(
+                object_id,
+                name,
+                initial,
+                minimum,
+                maximum,
+                step,
+                icon,
+                unit,
+                mode,
+                icon_template,
+                value_template,
+                set_value_script,
+                entity_ids,
+                value_changed_script,
+                hass,
             )
         )
 
@@ -346,20 +305,6 @@ class InputNumber(RestoreEntity):
         self._current_value = new_value
         await self.async_update_ha_state()
 
-    async def async_set_value_no_script(self, value):
-        """Set new value."""
-        num_value = float(value)
-        if num_value < self._minimum or num_value > self._maximum:
-            _LOGGER.warning(
-                "Invalid value: %s (range %s - %s)",
-                num_value,
-                self._minimum,
-                self._maximum,
-            )
-            return
-        self._current_value = num_value
-        await self.async_update_ha_state()
-
 
 class TemplateNumber(InputNumber):
     """Representation of a slider with template functionality."""
@@ -373,20 +318,20 @@ class TemplateNumber(InputNumber):
         maximum,
         step,
         icon,
-        icon_template,
         unit,
         mode,
-        hass,
-        value_template,
-        set_value_script,
-        entity_ids,
-        value_changed_script,
+        icon_template=None,
+        value_template=None,
+        set_value_script=None,
+        entity_ids=None,
+        value_changed_script=None,
+        hass=None,
     ):
         """Initialize a template number."""
         super().__init__(
             object_id, name, initial, minimum, maximum, step, icon, unit, mode
         )
-        self.hass = hass
+        self.hass = hass if set_value_script else None
         self._entities = entity_ids
 
         # template
@@ -414,24 +359,27 @@ class TemplateNumber(InputNumber):
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass and register callbacks."""
 
-        @callback
-        def template_number_state_listener(entity, old_state, new_state):
-            """Handle target device state changes."""
-            self.async_schedule_update_ha_state(True)
+        # If this is a true `TemplateNumber`, then listen for state changes
+        if self._set_value_script:
 
-        @callback
-        def template_number_startup(event):
-            """Listen for state changes."""
-            if self._entities:
-                async_track_state_change(
-                    self.hass, self._entities, template_number_state_listener
-                )
+            @callback
+            def template_number_state_listener(entity, old_state, new_state):
+                """Handle target device state changes."""
+                self.async_schedule_update_ha_state(True)
 
-            self.async_schedule_update_ha_state(True)
+            @callback
+            def template_number_startup(event):
+                """Listen for state changes."""
+                if self._entities:
+                    async_track_state_change(
+                        self.hass, self._entities, template_number_state_listener
+                    )
 
-        self.hass.bus.async_listen_once(
-            EVENT_HOMEASSISTANT_START, template_number_startup
-        )
+                self.async_schedule_update_ha_state(True)
+
+            self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_START, template_number_startup
+            )
 
         await super().async_added_to_hass()
         if self._current_value is not None:
