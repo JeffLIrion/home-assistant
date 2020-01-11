@@ -1,5 +1,6 @@
 """Template number functionality."""
 import logging
+from typing import Optional  # noqa pylint: disable=unused-import
 
 import voluptuous as vol
 
@@ -30,6 +31,20 @@ CONF_VALUE_CHANGED_SCRIPT = "value_changed_script"
 SERVICE_SET_VALUE_NO_SCRIPT = "set_value_no_script"
 
 
+TEMPLATE_NUMBER_CREATE_FIELDS = {
+    vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
+    vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
+    vol.Optional(CONF_ICON_TEMPLATE): cv.template,
+    vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
+}
+
+TEMPLATE_NUMBER_UPDATE_FIELDS = {
+    vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
+    vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
+    vol.Optional(CONF_ICON_TEMPLATE): cv.template,
+    vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
+}
+
 TEMPLATE_NUMBER_SCHEMA_DICT = {
     vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
     vol.Optional(CONF_SET_VALUE_SCRIPT): cv.SCRIPT_SCHEMA,
@@ -39,10 +54,13 @@ TEMPLATE_NUMBER_SCHEMA_DICT = {
 }
 
 
-def get_entity_ids(value_template, icon_template, cfg):
+def get_entity_ids(config):
     """Get the entity IDs for the templates."""
     # setup the entity ID's for the template
     template_entity_ids = set()
+    value_template = config.get(CONF_VALUE_TEMPLATE)
+    icon_template = config.get(CONF_ICON_TEMPLATE)
+
     if value_template is not None:
         temp_ids = value_template.extract_entities()
         if str(temp_ids) != MATCH_ALL:
@@ -53,7 +71,7 @@ def get_entity_ids(value_template, icon_template, cfg):
         if str(icon_ids) != MATCH_ALL:
             template_entity_ids |= set(icon_ids)
 
-    return cfg.get(CONF_ENTITY_ID, template_entity_ids)
+    return config.get(CONF_ENTITY_ID, template_entity_ids)
 
 
 def cv_template_number(cv_input_number):
