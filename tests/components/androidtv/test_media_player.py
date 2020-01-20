@@ -300,7 +300,11 @@ async def test_setup_with_adbkey(hass):
 async def _test_sources(hass, config0):
     """Test that sources (i.e., apps) are handled correctly for Android TV and Fire TV devices."""
     config = config0.copy()
-    config[DOMAIN][CONF_APPS] = {"com.app.test1": "TEST 1", "com.app.test3": ""}
+    config[DOMAIN][CONF_APPS] = {
+        "com.app.test1": "TEST 1",
+        "com.app.test3": None,
+        "com.app.test4": "",
+    }
     patch_key, entity_id = _setup(config)
 
     with patchers.PATCH_ADB_DEVICE_TCP, patchers.patch_connect(True)[
@@ -316,7 +320,7 @@ async def _test_sources(hass, config0):
         patch_update = patchers.patch_androidtv_update(
             "playing",
             "com.app.test1",
-            ["com.app.test1", "com.app.test2", "com.app.test3"],
+            ["com.app.test1", "com.app.test2", "com.app.test3", "com.app.test4"],
             "hdmi",
             False,
             1,
@@ -325,7 +329,7 @@ async def _test_sources(hass, config0):
         patch_update = patchers.patch_firetv_update(
             "playing",
             "com.app.test1",
-            ["com.app.test1", "com.app.test2", "com.app.test3"],
+            ["com.app.test1", "com.app.test2", "com.app.test3", "com.app.test4"],
         )
 
     with patch_update:
@@ -340,7 +344,7 @@ async def _test_sources(hass, config0):
         patch_update = patchers.patch_androidtv_update(
             "playing",
             "com.app.test2",
-            ["com.app.test2", "com.app.test1", "com.app.test3"],
+            ["com.app.test2", "com.app.test1", "com.app.test3", "com.app.test4"],
             "hdmi",
             True,
             0,
@@ -349,7 +353,7 @@ async def _test_sources(hass, config0):
         patch_update = patchers.patch_firetv_update(
             "playing",
             "com.app.test2",
-            ["com.app.test2", "com.app.test1", "com.app.test3"],
+            ["com.app.test2", "com.app.test1", "com.app.test3", "com.app.test4"],
         )
 
     with patch_update:
@@ -376,7 +380,7 @@ async def test_firetv_sources(hass):
 async def _test_select_source(hass, config0, source, expected_arg, method_patch):
     """Test that the methods for launching and stopping apps are called correctly when selecting a source."""
     config = config0.copy()
-    config[DOMAIN][CONF_APPS] = {"com.app.test1": "TEST 1"}
+    config[DOMAIN][CONF_APPS] = {"com.app.test1": "TEST 1", "com.app.test3": None}
     patch_key, entity_id = _setup(config)
 
     with patchers.PATCH_ADB_DEVICE_TCP, patchers.patch_connect(True)[
@@ -433,6 +437,17 @@ async def test_androidtv_select_source_launch_app_id_no_name(hass):
     )
 
 
+async def test_androidtv_select_source_launch_app_hidden(hass):
+    """Test that an app can be launched using its app ID when it is hidden from the sources list."""
+    assert await _test_select_source(
+        hass,
+        CONFIG_ANDROIDTV_ADB_SERVER,
+        "com.app.test3",
+        "com.app.test3",
+        patchers.PATCH_LAUNCH_APP,
+    )
+
+
 async def test_androidtv_select_source_stop_app_id(hass):
     """Test that an app can be stopped using its app ID."""
     assert await _test_select_source(
@@ -462,6 +477,17 @@ async def test_androidtv_select_source_stop_app_id_no_name(hass):
         CONFIG_ANDROIDTV_ADB_SERVER,
         "!com.app.test2",
         "com.app.test2",
+        patchers.PATCH_STOP_APP,
+    )
+
+
+async def test_androidtv_select_source_stop_app_hidden(hass):
+    """Test that an app can be stopped using its app ID when it is hidden from the sources list."""
+    assert await _test_select_source(
+        hass,
+        CONFIG_ANDROIDTV_ADB_SERVER,
+        "!com.app.test3",
+        "com.app.test3",
         patchers.PATCH_STOP_APP,
     )
 
@@ -499,6 +525,17 @@ async def test_firetv_select_source_launch_app_id_no_name(hass):
     )
 
 
+async def test_firetv_select_source_launch_app_hidden(hass):
+    """Test that an app can be launched using its app ID when it is hidden from the sources list."""
+    assert await _test_select_source(
+        hass,
+        CONFIG_FIRETV_ADB_SERVER,
+        "com.app.test3",
+        "com.app.test3",
+        patchers.PATCH_LAUNCH_APP,
+    )
+
+
 async def test_firetv_select_source_stop_app_id(hass):
     """Test that an app can be stopped using its app ID."""
     assert await _test_select_source(
@@ -528,6 +565,17 @@ async def test_firetv_select_source_stop_app_id_no_name(hass):
         CONFIG_FIRETV_ADB_SERVER,
         "!com.app.test2",
         "com.app.test2",
+        patchers.PATCH_STOP_APP,
+    )
+
+
+async def test_firetv_select_source_stop_hidden(hass):
+    """Test that an app can be stopped using its app ID when it is hidden from the sources list."""
+    assert await _test_select_source(
+        hass,
+        CONFIG_FIRETV_ADB_SERVER,
+        "!com.app.test3",
+        "com.app.test3",
         patchers.PATCH_STOP_APP,
     )
 
