@@ -375,7 +375,7 @@ class ADBDevice(MediaPlayerDevice):
         self._app_id_to_name = APPS.copy()
         self._app_id_to_name.update(apps)
         self._app_name_to_id = {
-            value: key for key, value in self._app_id_to_name.items()
+            value: key for key, value in self._app_id_to_name.items() if value
         }
         self._get_sources = get_sources
         self._keys = KEYS
@@ -602,9 +602,10 @@ class AndroidTVDevice(ADBDevice):
             self._available = False
 
         if running_apps:
-            self._sources = [
+            sources = [
                 self._app_id_to_name.get(app_id, app_id) for app_id in running_apps
             ]
+            self._sources = [source for source in sources if source]
         else:
             self._sources = None
 
@@ -677,9 +678,10 @@ class FireTVDevice(ADBDevice):
             self._available = False
 
         if running_apps:
-            self._sources = [
+            sources = [
                 self._app_id_to_name.get(app_id, app_id) for app_id in running_apps
             ]
+            self._sources = [source for source in sources if source]
         else:
             self._sources = None
 
