@@ -427,3 +427,5 @@ homeassistant/components/zwave/* @home-assistant/z-wave
 
 # Individual files
 homeassistant/components/demo/weather @fabaff
+
+homeassistant/components/cast_volume_tracker/* @JeffLIrion
