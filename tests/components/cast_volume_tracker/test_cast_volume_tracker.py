@@ -4,53 +4,62 @@ from homeassistant.components.cast_mock.media_player import (
     CAST_MOCK_DOMAIN,
     CONF_PARENTS,
 )
-from homeassistant.components.cast_volume_tracker import CONF_MUTE_WHEN_OFF
+from homeassistant.components.cast_volume_tracker import DOMAIN as CVT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN
 from homeassistant.const import CONF_NAME, CONF_PLATFORM, STATE_IDLE, STATE_OFF
 from homeassistant.setup import async_setup_component
 
-BEDROOM_SPEAKERS_CONFIG = {
-    DOMAIN: {
-        CONF_PLATFORM: CAST_MOCK_DOMAIN,
-        CONF_NAME: "Bedroom Speakers",
-        CONF_PARENTS: ["media_player.all_my_speakers"],
-        CONF_MUTE_WHEN_OFF: True,
-    }
+CAST_MOCK_CONFIG = {
+    DOMAIN: [
+        {
+            CONF_PLATFORM: CAST_MOCK_DOMAIN,
+            CONF_NAME: "Bedroom Speakers",
+            CONF_PARENTS: ["media_player.all_my_speakers"],
+        },
+        {
+            CONF_PLATFORM: CAST_MOCK_DOMAIN,
+            CONF_NAME: "Computer Speakers",
+            CONF_PARENTS: [
+                "media_player.all_my_speakers",
+                "media_player.kitchen_speakers",
+                "media_player.main_speakers",
+            ],
+        },
+    ]
 }
 
-COMPUTER_SPEAKERS_CONFIG = {
-    DOMAIN: {
-        CONF_PLATFORM: CAST_MOCK_DOMAIN,
-        CONF_NAME: "Computer Speakers",
-        CONF_PARENTS: [
-            "media_player.all_my_speakers",
-            "media_player.kitchen_speakers",
-            "media_player.main_speakers",
-        ],
+CAST_VOLUME_TRACKER_CONFIG = {
+    CVT_DOMAIN: {
+        "bedroom_speakers": {
+            CONF_NAME: "Bedroom Speakers",
+            CONF_PARENTS: ["media_player.all_my_speakers"],
+        },
+        "computer_speakers": {
+            CONF_NAME: "Computer Speakers",
+            CONF_PARENTS: [
+                "media_player.all_my_speakers",
+                "media_player.kitchen_speakers",
+                "media_player.main_speakers",
+            ],
+        },
     }
 }
-
-
-async def _setup_one(hass, config):
-    """Set up one media player."""
-    assert await async_setup_component(hass, DOMAIN, config)
-    name = "media_player." + config[CONF_NAME].lower().replace(" ", "_")
-    state = hass.states.get(name)
-    assert state is not None
-    assert state.state == STATE_OFF
-    assert state.state != STATE_IDLE
-
-
-async def _setup_all(hass):
-    """Set up all the media players for the tests."""
-    await _setup_one(hass, BEDROOM_SPEAKERS_CONFIG)
-    await _setup_one(hass, COMPUTER_SPEAKERS_CONFIG)
 
 
 async def test_setup(hass):
     """Test that a `cast_mock` media player can be created."""
-    assert await async_setup_component(hass, DOMAIN, BEDROOM_SPEAKERS_CONFIG)
+    assert await async_setup_component(hass, DOMAIN, CAST_MOCK_CONFIG)
+    assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
 
-    state = hass.states.get("media_player.bedroom_speakers")
-    assert state is not None
-    assert state.state == STATE_OFF
+    for entity_id in [
+        "media_player.bedroom_speakers",
+        "media_player.computer_speakers",
+    ]:
+        state = hass.states.get(entity_id)
+        assert state is not None
+        assert state.state == STATE_OFF
+        assert state.state != STATE_IDLE
+
+        cvt_entity_id = entity_id.replace("media_player", "cast_volume_tracker")
+        state = hass.states.get(cvt_entity_id)
+        assert state is not None

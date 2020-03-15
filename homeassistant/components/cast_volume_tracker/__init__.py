@@ -776,6 +776,9 @@ class CastVolumeTrackerEntity(RestoreEntity):
             return
 
         state = await self.async_get_last_state()
+        if state is None:
+            return
+
         value = state and float(state.state)
         is_volume_muted = state.attributes.get(ATTR_MEDIA_VOLUME_MUTED)
 

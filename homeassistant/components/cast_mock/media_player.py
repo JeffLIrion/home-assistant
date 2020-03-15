@@ -9,6 +9,7 @@ from homeassistant.components.media_player import PLATFORM_SCHEMA, MediaPlayerDe
 from homeassistant.components.media_player.const import (
     SUPPORT_TURN_OFF,
     SUPPORT_TURN_ON,
+    SUPPORT_VOLUME_MUTE,
     SUPPORT_VOLUME_SET,
 )
 from homeassistant.const import CONF_NAME, STATE_IDLE, STATE_OFF
@@ -18,7 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 
 CAST_MOCK_DOMAIN = "cast_mock"
 
-SUPPORT_CAST_MOCK = SUPPORT_TURN_OFF | SUPPORT_TURN_ON | SUPPORT_VOLUME_SET
+SUPPORT_CAST_MOCK = (
+    SUPPORT_TURN_OFF | SUPPORT_TURN_ON | SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_SET
+)
 
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -49,6 +52,12 @@ class CastMock(MediaPlayerDevice):
         self._members = members
         self._state = STATE_OFF
         self._volume_level = 0.0
+        self._is_volume_muted = False
+
+    @property
+    def is_volume_muted(self):
+        """Boolean if volume is currently muted."""
+        return self._is_volume_muted
 
     @property
     def name(self):
