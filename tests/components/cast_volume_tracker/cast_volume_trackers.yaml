@@ -1,0 +1,12 @@
+cast_volume_tracker:
+  bedroom_speakers:
+    name: 'Bedroom Speakers'
+    parents:
+    - all_my_speakers
+
+  computer_speakers:
+    name: 'Computer Speakers'
+    parents:
+    - all_my_speakers
+    - kitchen_speakers
+    - main_speakers

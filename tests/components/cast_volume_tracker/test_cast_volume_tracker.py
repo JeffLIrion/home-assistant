@@ -1,5 +1,7 @@
 """Tests for the cast_volume_tracker component."""
 
+import os
+
 from homeassistant.components.cast_mock.media_player import (
     CAST_MOCK_DOMAIN,
     CONF_PARENTS,
@@ -8,6 +10,9 @@ from homeassistant.components.cast_volume_tracker import DOMAIN as CVT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN
 from homeassistant.const import CONF_NAME, CONF_PLATFORM, STATE_IDLE, STATE_OFF
 from homeassistant.setup import async_setup_component
+from homeassistant.util.yaml.loader import load_yaml
+
+PWD = os.path.dirname(__file__)
 
 CAST_MOCK_CONFIG = {
     DOMAIN: [
@@ -28,7 +33,7 @@ CAST_MOCK_CONFIG = {
     ]
 }
 
-CAST_VOLUME_TRACKER_CONFIG = {
+CAST_VOLUME_TRACKER_CONFIG0 = {
     CVT_DOMAIN: {
         "bedroom_speakers": {
             CONF_NAME: "Bedroom Speakers",
@@ -44,6 +49,8 @@ CAST_VOLUME_TRACKER_CONFIG = {
         },
     }
 }
+
+CAST_VOLUME_TRACKER_CONFIG = load_yaml(PWD + "/cast_volume_trackers.yaml")
 
 
 async def test_setup(hass):
