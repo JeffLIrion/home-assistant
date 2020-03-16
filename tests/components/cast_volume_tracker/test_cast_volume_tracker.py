@@ -10,8 +10,8 @@ from homeassistant.util.yaml.loader import load_yaml
 
 PWD = os.path.dirname(__file__)
 
-CAST_VOLUME_TRACKER_CONFIG = load_yaml(PWD + "/cast_volume_trackers.yaml")
-CAST_MOCK_CONFIG = load_yaml(PWD + "/media_players.yaml")
+CAST_VOLUME_TRACKER_CONFIG = {CVT_DOMAIN: load_yaml(PWD + "/cast_volume_trackers.yaml")}
+CAST_MOCK_CONFIG = {DOMAIN: load_yaml(PWD + "/media_players.yaml")}
 
 
 async def test_setup(hass):
