@@ -37,27 +37,32 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the Cast Mock platform."""
     hass.data.setdefault(CAST_MOCK_DOMAIN, {})
-    cast_mock = CastMock(config[CONF_NAME], config[CONF_PARENTS], config[CONF_MEMBERS])
+    cast_mock = CastMock(
+        config[CONF_NAME], config[CONF_PARENTS], config[CONF_MEMBERS], hass
+    )
     add_entities([cast_mock])
-    hass.data[CAST_MOCK_DOMAIN][config[CONF_NAME]] = cast_mock
+    object_id = config[CONF_NAME].lower().replace(" ", "_")
+    hass.data[CAST_MOCK_DOMAIN][object_id] = cast_mock
 
 
 class CastMock(MediaPlayerDevice):
     """A mock cast media player."""
 
-    def __init__(self, name, parents, members):
+    def __init__(self, name, parents, members, hass):
         """Initialize the mock cast media player."""
+        self._hass = hass
         self._name = name
         self._parents = parents
         self._members = members
-        self._state = STATE_OFF
-        self._volume_level = 0.0
-        self._is_volume_muted = False
+        self.state_ = STATE_OFF
+        self.volume_level_ = 0.0
+        self.is_volume_muted_ = False
+        self.entity_id_ = "media_player.{}".format(name.lower().replace(" ", "_"))
 
     @property
     def is_volume_muted(self):
         """Boolean if volume is currently muted."""
-        return self._is_volume_muted
+        return self.is_volume_muted_
 
     @property
     def name(self):
@@ -72,7 +77,7 @@ class CastMock(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the player."""
-        return self._state
+        return self.state_
 
     @property
     def supported_features(self):
@@ -82,12 +87,44 @@ class CastMock(MediaPlayerDevice):
     @property
     def volume_level(self):
         """Return the volume level."""
-        return self._volume_level
+        return self.volume_level_
 
     async def async_turn_on(self):
         """Turn on the device."""
-        self._state = STATE_IDLE
+        self.state_ = STATE_IDLE
+
+        # If this is a group, then turn on its members and compute its volume level
+        members = [
+            self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
+        ]
+        if members:
+            self.volume_level_ = sum(
+                (member.volume_level_ for member in members)
+            ) / len(members)
+            off_entity_ids = [
+                member.entity_id_ for member in members if member.state_ == STATE_OFF
+            ]
+            for entity_id in off_entity_ids:
+                self._hass.states.async_set(entity_id, STATE_IDLE)
+                # await self._hass.async_block_till_done()
 
     async def async_turn_off(self):
         """Turn off the device."""
-        self._state = STATE_OFF
+        self.state_ = STATE_OFF
+
+        # If this is a group, then turn off its members
+        members = [
+            self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
+        ]
+        if members:
+            on_entity_ids = [
+                member.entity_id_ for member in members if member.state_ != STATE_OFF
+            ]
+            for entity_id in on_entity_ids:
+                self._hass.states.async_set(entity_id, STATE_IDLE)
+                # await self._hass.async_block_till_done()
+
+    async def async_set_volume_level(self, volume):
+        """Set the volume level."""
+        # old_volume_level = self.volume_level_
+        self.volume_level_ = volume
