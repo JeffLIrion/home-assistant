@@ -1,0 +1,12 @@
+media_player:
+  - platform: cast_mock
+    name: 'Bedroom Speakers'
+    parents:
+    - all_my_speakers
+
+  - platform: cast_mock
+    name: 'Computer Speakers'
+    parents:
+    - all_my_speakers
+    - kitchen_speakers
+    - main_speakers
