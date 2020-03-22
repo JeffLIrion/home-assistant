@@ -77,4 +77,4 @@ async def test_cast_mock_turn_on_off_individual(hass):
     # Make sure the media player is off
     state = hass.states.get(entity_id)
     assert state is not None
-    # assert state.state == STATE_OFF
+    assert state.state == STATE_OFF

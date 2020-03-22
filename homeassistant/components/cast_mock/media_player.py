@@ -92,6 +92,7 @@ class CastMock(MediaPlayerDevice):
     async def async_turn_on(self):
         """Turn on the device."""
         self.state_ = STATE_IDLE
+        self.async_write_ha_state()
 
         # If this is a group, then turn on its members and compute its volume level
         members = [
@@ -111,6 +112,7 @@ class CastMock(MediaPlayerDevice):
     async def async_turn_off(self):
         """Turn off the device."""
         self.state_ = STATE_OFF
+        self.async_write_ha_state()
 
         # If this is a group, then turn off its members
         members = [
