@@ -68,7 +68,7 @@ async def test_cast_mock_turn_on_off_individual(hass):
     # Make sure the media player is idle
     state = hass.states.get(entity_id)
     assert state is not None
-    # assert state.state == STATE_IDLE
+    assert state.state == STATE_IDLE
 
     await hass.services.async_call(
         MP_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: entity_id}, blocking=True,
