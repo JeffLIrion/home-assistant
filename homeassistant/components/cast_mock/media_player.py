@@ -130,3 +130,19 @@ class CastMock(MediaPlayerDevice):
         """Set the volume level."""
         # old_volume_level = self.volume_level_
         self.volume_level_ = volume
+
+        # If this is a group, then adjust the volume of its members
+        members = [
+            self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
+        ]
+        for member in members:
+            # TODO: calculate the volume correctly and set it
+            self._hass.states.async_set(member.entity_id_, STATE_IDLE)
+
+        parents = [
+            self._hass.data[CAST_MOCK_DOMAIN][parent] for parent in self._parents
+        ]
+        for parent in parents:
+            if parent.state_ != STATE_OFF:
+                # TODO: calculate the volume correctly and set it
+                self._hass.states.async_set(parent.entity_id_, STATE_IDLE)
