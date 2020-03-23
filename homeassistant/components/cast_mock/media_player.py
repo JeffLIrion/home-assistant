@@ -1,5 +1,4 @@
 """A mock media player for testing `cast_volume_tracker`."""
-import asyncio  # noqa
 import logging
 
 import voluptuous as vol
