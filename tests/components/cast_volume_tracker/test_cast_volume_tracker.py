@@ -3,11 +3,15 @@
 import os
 
 from homeassistant.components.cast_volume_tracker import DOMAIN as CVT_DOMAIN
-from homeassistant.components.media_player.const import DOMAIN as MP_DOMAIN
+from homeassistant.components.media_player.const import (
+    ATTR_MEDIA_VOLUME_LEVEL,
+    DOMAIN as MP_DOMAIN,
+)
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    SERVICE_VOLUME_SET,
     STATE_IDLE,
     STATE_OFF,
 )
@@ -52,7 +56,6 @@ async def test_setup(hass):
 async def test_cast_mock_turn_on_off_individual(hass):
     """Test that a `cast_mock` individual (i.e., not a group) media player can be turned on and off."""
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
-    # assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
 
     entity_id = "media_player.bedroom_mini"
 
@@ -78,3 +81,102 @@ async def test_cast_mock_turn_on_off_individual(hass):
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_OFF
+
+
+async def test_cast_mock_turn_on_off_group(hass):
+    """Test that a `cast_mock` group can be turned on and off."""
+    assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
+
+    entity_id = "media_player.kitchen_speakers"
+    members = ["media_player.computer_speakers", "media_player.kitchen_home"]
+
+    # Make sure the media player and its members are off
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == STATE_OFF
+    for member in members:
+        member_state = hass.states.get(member)
+        assert member_state is not None
+        assert member_state.state == STATE_OFF
+
+    await hass.services.async_call(
+        MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: entity_id}, blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    # Make sure the media player and its members are idle
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == STATE_IDLE
+    for member in members:
+        member_state = hass.states.get(member)
+        assert member_state is not None
+        assert member_state.state == STATE_IDLE
+
+    await hass.services.async_call(
+        MP_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: entity_id}, blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    # Make sure the media player and its members are off
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == STATE_OFF
+    for member in members:
+        member_state = hass.states.get(member)
+        assert member_state is not None
+        assert member_state.state == STATE_OFF
+
+
+async def test_cast_mock_volume_set_individual(hass):
+    """Test that the `media_player.volume_set` service works for an individual player."""
+    assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
+
+    entity_id = "media_player.bedroom_mini"
+
+    # Turn on the media player and set the volume
+    await hass.services.async_call(
+        MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: entity_id}, blocking=True,
+    )
+    await hass.services.async_call(
+        MP_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.123},
+        blocking=True,
+    )
+
+    # Make sure the media player's volume is as expected
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == STATE_IDLE
+    assert state.attributes["volume_level"] == 0.123
+
+
+async def test_cast_mock_volume_set_group(hass):
+    """Test that the `media_player.volume_set` service works for a group."""
+    assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
+
+    entity_id = "media_player.kitchen_speakers"
+    members = ["media_player.computer_speakers", "media_player.kitchen_home"]
+
+    # Turn on the media player and set the volume
+    await hass.services.async_call(
+        MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: entity_id}, blocking=True,
+    )
+    await hass.services.async_call(
+        MP_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.123},
+        blocking=True,
+    )
+
+    # Make sure the media player's volume is as expected
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == STATE_IDLE
+    assert state.attributes["volume_level"] == 0.123
+    for member in members:
+        member_state = hass.states.get(member)
+        assert member_state is not None
+        assert member_state.state == STATE_IDLE
+        assert member_state.attributes["volume_level"] == 0.123

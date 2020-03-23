@@ -101,11 +101,10 @@ class CastMock(MediaPlayerDevice):
             self.volume_level_ = sum(
                 (member.volume_level_ for member in members)
             ) / len(members)
-            off_entity_ids = [
-                member.entity_id_ for member in members if member.state_ == STATE_OFF
-            ]
-            for entity_id in off_entity_ids:
-                self._hass.states.async_set(entity_id, STATE_IDLE)
+            off_members = [member for member in members if member.state_ == STATE_OFF]
+            for member in off_members:
+                member.state_ = STATE_IDLE
+                self._hass.states.async_set(member.entity_id_, STATE_IDLE)
                 # await self._hass.async_block_till_done()
 
     async def async_turn_off(self):
@@ -118,17 +117,17 @@ class CastMock(MediaPlayerDevice):
             self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
         ]
         if members:
-            on_entity_ids = [
-                member.entity_id_ for member in members if member.state_ != STATE_OFF
-            ]
-            for entity_id in on_entity_ids:
-                self._hass.states.async_set(entity_id, STATE_IDLE)
+            on_members = [member for member in members if member.state_ != STATE_OFF]
+            for member in on_members:
+                member.state_ = STATE_OFF
+                self._hass.states.async_set(member.entity_id_, STATE_OFF)
                 # await self._hass.async_block_till_done()
 
     async def async_set_volume_level(self, volume):
         """Set the volume level."""
         # old_volume_level = self.volume_level_
         self.volume_level_ = volume
+        self.async_write_ha_state()
 
         # If this is a group, then adjust the volume of its members
         members = [
@@ -136,7 +135,9 @@ class CastMock(MediaPlayerDevice):
         ]
         for member in members:
             # TODO: calculate the volume correctly and set it
-            self._hass.states.async_set(member.entity_id_, STATE_IDLE)
+            attrs = dict(self.hass.states.get(member.entity_id_).attributes)
+            attrs["volume_level"] = volume
+            self._hass.states.async_set(member.entity_id_, STATE_IDLE, attributes=attrs)
 
         parents = [
             self._hass.data[CAST_MOCK_DOMAIN][parent] for parent in self._parents
