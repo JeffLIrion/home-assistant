@@ -88,61 +88,93 @@ class CastMock(MediaPlayerDevice):
         """Return the volume level."""
         return self.volume_level_
 
-    async def async_turn_on(self):
-        """Turn on the device."""
-        self.state_ = STATE_IDLE
-        self.async_write_ha_state()
+    @property
+    def average_volume_level(self):
+        """Return the volume level."""
+        if not self._members:
+            return self.volume_level_
 
-        # If this is a group, then turn on its members and compute its volume level
+        # Gather the group's members
         members = [
             self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
         ]
-        if members:
-            self.volume_level_ = sum(
-                (member.volume_level_ for member in members)
-            ) / len(members)
-            off_members = [member for member in members if member.state_ == STATE_OFF]
-            for member in off_members:
-                member.state_ = STATE_IDLE
-                self._hass.states.async_set(member.entity_id_, STATE_IDLE)
-                # await self._hass.async_block_till_done()
+        return sum((member.volume_level_ for member in members)) / len(members)
+
+    async def async_turn_on(self):
+        """Turn on the device."""
+        self.state_ = STATE_IDLE
+
+        # Gather the group's members (if applicable)
+        members = [
+            self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
+        ]
+
+        # If this is not a group, write its state and exit now
+        if not members:
+            self.async_write_ha_state()
+            return
+
+        # This is a group -> compute its volume level from its members and mark the members as on
+        self.volume_level_ = sum((member.volume_level_ for member in members)) / len(
+            members
+        )
+        self.async_write_ha_state()
+
+        off_members = [member for member in members if member.state_ == STATE_OFF]
+        for member in off_members:
+            member.state_ = STATE_IDLE
+            attrs = {"volume_level": member.volume_level_}
+            self._hass.states.async_set(member.entity_id_, STATE_IDLE, attributes=attrs)
+            # await self._hass.async_block_till_done()
 
     async def async_turn_off(self):
         """Turn off the device."""
         self.state_ = STATE_OFF
         self.async_write_ha_state()
 
-        # If this is a group, then turn off its members
+        # Gather the group's members (if applicable)
         members = [
             self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
         ]
-        if members:
-            on_members = [member for member in members if member.state_ != STATE_OFF]
-            for member in on_members:
-                member.state_ = STATE_OFF
-                self._hass.states.async_set(member.entity_id_, STATE_OFF)
-                # await self._hass.async_block_till_done()
+
+        # If this is a group, then turn off its members
+        on_members = [member for member in members if member.state_ != STATE_OFF]
+        for member in on_members:
+            member.state_ = STATE_OFF
+            self._hass.states.async_set(member.entity_id_, STATE_OFF)
+            # await self._hass.async_block_till_done()
 
     async def async_set_volume_level(self, volume):
         """Set the volume level."""
+        _LOGGER.critical("Setting volume for %s to %.2f", self.entity_id_, volume)
         # old_volume_level = self.volume_level_
         self.volume_level_ = volume
         self.async_write_ha_state()
 
-        # If this is a group, then adjust the volume of its members
+        # Gather the group's members (if applicable)
         members = [
             self._hass.data[CAST_MOCK_DOMAIN][member] for member in self._members
         ]
+
+        # If this is a group, then adjust the volume of its members
         for member in members:
             # TODO: calculate the volume correctly and set it
-            attrs = dict(self.hass.states.get(member.entity_id_).attributes)
-            attrs["volume_level"] = volume
-            self._hass.states.async_set(member.entity_id_, STATE_IDLE, attributes=attrs)
+            member.volume_level_ = volume
+            member.async_write_ha_state()
+            # attrs = dict(self.hass.states.get(member.entity_id_).attributes)
+            # attrs["volume_level"] = volume
+            # self._hass.states.async_set(member.entity_id_, STATE_IDLE, attributes=attrs)
 
+        # Gather the individual media player's parent(s) (if applicable)
         parents = [
             self._hass.data[CAST_MOCK_DOMAIN][parent] for parent in self._parents
         ]
+
+        # If this is an individual media player, adjust the volume of its parent(s)
         for parent in parents:
             if parent.state_ != STATE_OFF:
-                # TODO: calculate the volume correctly and set it
-                self._hass.states.async_set(parent.entity_id_, STATE_IDLE)
+                attrs = dict(self.hass.states.get(parent.entity_id_).attributes)
+                attrs["volume_level"] = parent.average_volume_level
+                self._hass.states.async_set(
+                    parent.entity_id_, STATE_IDLE, attributes=attrs
+                )
