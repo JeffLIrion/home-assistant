@@ -275,19 +275,16 @@ async def test_cvt_kitchen_speakers(hass):
         },
         blocking=True,
     )
-    assert (
-        hass.states.get("cast_volume_tracker.kitchen_speakers").attributes[
-            "expected_volume_level"
-        ]
-        == 0.0
-    )
+    expected_volume_level = hass.states.get(
+        "cast_volume_tracker.kitchen_speakers"
+    ).attributes["expected_volume_level"]
+    assert expected_volume_level == 0.0
     assert float(hass.states.get("cast_volume_tracker.kitchen_speakers").state) == 10.0
-    assert (
-        hass.states.get("cast_volume_tracker.computer_speakers").attributes[
-            "expected_volume_level"
-        ]
-        == 0.0
-    )
+
+    expected_volume_level = hass.states.get(
+        "cast_volume_tracker.computer_speakers"
+    ).attributes["expected_volume_level"]
+    assert expected_volume_level == 0.0
     assert float(hass.states.get("cast_volume_tracker.computer_speakers").state) == 10.0
 
     # Turn the speakers on
@@ -298,6 +295,13 @@ async def test_cvt_kitchen_speakers(hass):
         blocking=True,
     )
     await hass.async_block_till_done()
+    assert hass.states.get("media_player.kitchen_speakers").state == STATE_IDLE
+
+    attrs = dict(hass.states.get("media_player.kitchen_speakers").attributes)
+    attrs["volume_level"] = 0.10
+    hass.states.async_set("media_player.kitchen_speakers", STATE_IDLE, attributes=attrs)
+    await hass.async_block_till_done()
+    # assert hass.states.get("cast_volume_tracker.kitchen_speakers").attributes["cast_is_on"]
     # assert hass.states.get("media_player.kitchen_speakers").attributes["volume_level"] == 0.10
     # assert hass.states.get("media_player.kitchen_home").attributes["volume_level"] == 0.10
     # assert float(hass.states.get("cast_volume_tracker.computer_speakers").attributes["expected_volume_level"]) == 10.

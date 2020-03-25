@@ -630,42 +630,39 @@ async def async_setup(hass, config):
             value = 0.0
 
         if CONF_MEMBERS not in cfg:
+            cvt = CastVolumeTrackerIndividual(
+                object_id,
+                cast_is_on,
+                value,
+                is_volume_muted,
+                cfg[CONF_PARENTS],
+                cfg[CONF_MUTE_WHEN_OFF],
+                bool(cfg.get(CONF_DEFAULT_VOLUME_TEMPLATE)),
+            )
             entities.append(
                 CastVolumeTrackerEntity(
                     hass,
                     object_id,
                     name,
-                    CastVolumeTrackerIndividual(
-                        object_id,
-                        cast_is_on,
-                        value,
-                        is_volume_muted,
-                        cfg[CONF_PARENTS],
-                        cfg[CONF_MUTE_WHEN_OFF],
-                        bool(cfg.get(CONF_DEFAULT_VOLUME_TEMPLATE)),
-                    ),
+                    cvt,
                     off_script,
                     on_script,
                     cfg.get(CONF_DEFAULT_VOLUME_TEMPLATE),
                 )
             )
         else:
+            cvt = CastVolumeTrackerGroup(
+                object_id,
+                cast_is_on,
+                value,
+                is_volume_muted,
+                cfg[CONF_MEMBERS],
+                cfg[CONF_MEMBERS_EXCLUDED_WHEN_OFF],
+                cfg[CONF_MEMBERS_START_MUTED],
+            )
             entities.append(
                 CastVolumeTrackerEntity(
-                    hass,
-                    object_id,
-                    name,
-                    CastVolumeTrackerGroup(
-                        object_id,
-                        cast_is_on,
-                        value,
-                        is_volume_muted,
-                        cfg[CONF_MEMBERS],
-                        cfg[CONF_MEMBERS_EXCLUDED_WHEN_OFF],
-                        cfg[CONF_MEMBERS_START_MUTED],
-                    ),
-                    off_script,
-                    on_script,
+                    hass, object_id, name, cvt, off_script, on_script,
                 )
             )
 
