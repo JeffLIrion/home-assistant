@@ -596,6 +596,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 async def async_setup(hass, config):
     """Set up a cast volume tracker."""
+    hass.data.setdefault(DOMAIN, {})  # CAN BE DELETED
     component = EntityComponent(_LOGGER, DOMAIN, hass)
 
     entities = []
@@ -639,6 +640,7 @@ async def async_setup(hass, config):
                 cfg[CONF_MUTE_WHEN_OFF],
                 bool(cfg.get(CONF_DEFAULT_VOLUME_TEMPLATE)),
             )
+            hass.data[DOMAIN][object_id] = cvt  # CAN BE DELETED
             entities.append(
                 CastVolumeTrackerEntity(
                     hass,
@@ -660,6 +662,7 @@ async def async_setup(hass, config):
                 cfg[CONF_MEMBERS_EXCLUDED_WHEN_OFF],
                 cfg[CONF_MEMBERS_START_MUTED],
             )
+            hass.data[DOMAIN][object_id] = cvt  # CAN BE DELETED
             entities.append(
                 CastVolumeTrackerEntity(
                     hass, object_id, name, cvt, off_script, on_script,

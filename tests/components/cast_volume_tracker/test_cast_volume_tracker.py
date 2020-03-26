@@ -65,6 +65,11 @@ async def test_setup(hass):
         assert state is not None
 
 
+# =========================================================================== #
+#                                                                             #
+#                                  Cast Mock                                  #
+#                                                                             #
+# =========================================================================== #
 async def test_cast_mock_turn_on_off_individual(hass):
     """Test that a `cast_mock` individual (i.e., not a group) media player can be turned on and off."""
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
@@ -236,7 +241,193 @@ async def test_cast_mock_volume_set_individual_in_group(hass):
     assert state.attributes["volume_level"] == 0.2
 
 
-async def test_cvt_kitchen_speakers(hass):
+# =========================================================================== #
+#                                                                             #
+#                        Cast Volume Tracker (control)                        #
+#                                                                             #
+# =========================================================================== #
+async def test_cvt_computer_speakers_control(hass):
+    """Test an individual cast volume tracker."""
+    assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
+    assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
+
+    # Turn the speaker on
+    await hass.services.async_call(
+        MP_DOMAIN,
+        SERVICE_TURN_ON,
+        {ATTR_ENTITY_ID: "media_player.computer_speakers"},
+        blocking=True,
+    )
+
+    # Mute the volume
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_MUTED: True,
+        },
+        blocking=True,
+    )
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.0
+    )
+
+    # Set the volume to 11
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_LEVEL: 0.11,
+        },
+        blocking=True,
+    )
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.0
+    )
+
+    # Un-mute the volume
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_MUTED: False,
+        },
+        blocking=True,
+    )
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.11
+    )
+
+    # Set the volume to 22
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_LEVEL: 0.22,
+        },
+        blocking=True,
+    )
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.22
+    )
+
+    # Mute the volume
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_MUTED: True,
+        },
+        blocking=True,
+    )
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.0
+    )
+
+    # Set the volume to 33
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_LEVEL: 0.33,
+        },
+        blocking=True,
+    )
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.0
+    )
+
+    # Un-mute the volume
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_MUTED: False,
+        },
+        blocking=True,
+    )
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.33
+    )
+
+
+async def test_cvt_kitchen_speakers_control(hass):
+    """Test a group with two members."""
+    assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
+    assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
+
+
+# =========================================================================== #
+#                                                                             #
+#                         Cast Volume Tracker (track)                         #
+#                                                                             #
+# =========================================================================== #
+async def test_cvt_computer_speakers_track(hass):
+    """Test an individual cast volume tracker."""
+    assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
+    assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
+
+    # Turn the speaker on
+    await hass.services.async_call(
+        MP_DOMAIN,
+        SERVICE_TURN_ON,
+        {ATTR_ENTITY_ID: "media_player.computer_speakers"},
+        blocking=True,
+    )
+    # assert hass.states.get("cast_volume_tracker.computer_speakers").attributes["cast_is_on"]
+    # assert hass.data["cast_volume_tracker"]["computer_speakers"].cast_is_on
+
+    if 1:
+        return
+
+    assert hass.data["cast_mock"]["computer_speakers"].state_ == STATE_IDLE
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.321
+    )
+    # assert hass.data[MP_DOMAIN]["computer_speakers"].volume_level_ == 0.321
+    # assert hass.states.get("media_player.computer_speakers").attributes["volume_level"] == 0.321
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {
+            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
+            ATTR_MEDIA_VOLUME_LEVEL: 0.123,
+        },
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get("media_player.computer_speakers").state == STATE_IDLE
+    assert (
+        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
+        == 0.123
+    )
+    assert hass.states.get("")
+
+    attrs = dict(hass.states.get("media_player.computer_speakers").attributes)
+    attrs["volume_level"] = 0.10
+    hass.states.async_set(
+        "media_player.computer_speakers", STATE_IDLE, attributes=attrs
+    )
+    await hass.async_block_till_done()
+    # assert hass.states.get("cast_volume_tracker.computer_speakers").attributes["cast_is_on"]
+
+
+async def test_cvt_kitchen_speakers_track(hass):
     """Test a group with two members."""
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
