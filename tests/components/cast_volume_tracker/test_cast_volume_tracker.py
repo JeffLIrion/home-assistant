@@ -1,5 +1,6 @@
 """Tests for the cast_volume_tracker component."""
 
+import logging
 import os
 
 from homeassistant.components.cast_volume_tracker import DOMAIN as CVT_DOMAIN
@@ -20,6 +21,7 @@ from homeassistant.const import (
 from homeassistant.setup import async_setup_component
 from homeassistant.util.yaml.loader import load_yaml
 
+_LOGGER = logging.getLogger(__name__)
 PWD = os.path.dirname(__file__)
 
 MEDIA_PLAYERS = [
@@ -381,6 +383,31 @@ async def test_cvt_computer_speakers_track(hass):
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
 
+    assert await async_setup_component(
+        hass,
+        "input_number",
+        {
+            "input_number": {
+                "set_value_script": {"initial": 100, "min": 0, "max": 200},
+                "template_number": {
+                    "initial": 50,
+                    "min": 0,
+                    "max": 100,
+                    "entity_id": "media_player.computer_speakers",
+                    "value_template": "{{ (not is_state('media_player.computer_speakers', 'off')) | int | multiply(100) }}",
+                    "set_value_script": {
+                        "service": "input_number.set_value",
+                        "data_template": {
+                            "entity_id": "input_number.set_value_script",
+                            "value": "{{ value | multiply(2) }}",
+                        },
+                    },
+                },
+            }
+        },
+    )
+    assert float(hass.states.get("input_number.template_number").state) == 50.0
+
     # Turn the speaker on
     await hass.services.async_call(
         MP_DOMAIN,
@@ -388,6 +415,17 @@ async def test_cvt_computer_speakers_track(hass):
         {ATTR_ENTITY_ID: "media_player.computer_speakers"},
         blocking=True,
     )
+
+    computer_speakers = hass.data["cast_mock"]["computer_speakers"]
+    _LOGGER.critical(computer_speakers.state_)
+    _LOGGER.critical(computer_speakers.volume_level_)
+    hass.states.async_set(
+        "media_player.computer_speakers",
+        computer_speakers.state_,
+        attributes={"volume_level": computer_speakers.volume_level_},
+    )
+    await hass.async_block_till_done()
+    # assert float(hass.states.get("input_number.template_number").state) == 100.0
     # assert hass.states.get("cast_volume_tracker.computer_speakers").attributes["cast_is_on"]
     # assert hass.data["cast_volume_tracker"]["computer_speakers"].cast_is_on
 
