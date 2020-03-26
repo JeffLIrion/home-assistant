@@ -406,7 +406,11 @@ async def test_cvt_computer_speakers_track(hass):
             }
         },
     )
-    assert float(hass.states.get("input_number.template_number").state) == 50.0
+
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    assert float(hass.states.get("input_number.template_number").state) == 0.0
 
     # Turn the speaker on
     await hass.services.async_call(
@@ -425,9 +429,11 @@ async def test_cvt_computer_speakers_track(hass):
         attributes={"volume_level": computer_speakers.volume_level_},
     )
     await hass.async_block_till_done()
-    # assert float(hass.states.get("input_number.template_number").state) == 100.0
-    # assert hass.states.get("cast_volume_tracker.computer_speakers").attributes["cast_is_on"]
-    # assert hass.data["cast_volume_tracker"]["computer_speakers"].cast_is_on
+    assert float(hass.states.get("input_number.template_number").state) == 100.0
+    assert hass.states.get("cast_volume_tracker.computer_speakers").attributes[
+        "cast_is_on"
+    ]
+    assert hass.data["cast_volume_tracker"]["computer_speakers"].cast_is_on
 
     if 1:
         return
