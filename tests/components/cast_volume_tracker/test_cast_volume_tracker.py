@@ -253,118 +253,83 @@ async def test_cvt_computer_speakers_control(hass):
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
 
+    mp_entity_id = "media_player.computer_speakers"
+    cvt_entity_id = "cast_volume_tracker.computer_speakers"
+
     # Turn the speaker on
     await hass.services.async_call(
-        MP_DOMAIN,
-        SERVICE_TURN_ON,
-        {ATTR_ENTITY_ID: "media_player.computer_speakers"},
-        blocking=True,
+        MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
     )
 
     # Mute the volume
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_MUTE,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_MUTED: True,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
         blocking=True,
     )
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.0
-    )
+    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
+    assert volume_level == 0.0
 
     # Set the volume to 11
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_SET,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_LEVEL: 0.11,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.11},
         blocking=True,
     )
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.0
-    )
+    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
+    assert volume_level == 0.0
 
     # Un-mute the volume
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_MUTE,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_MUTED: False,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.11
-    )
+    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
+    assert volume_level == 0.11
 
     # Set the volume to 22
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_SET,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_LEVEL: 0.22,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.22},
         blocking=True,
     )
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.22
-    )
+    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
+    assert volume_level == 0.22
 
     # Mute the volume
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_MUTE,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_MUTED: True,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
         blocking=True,
     )
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.0
-    )
+    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
+    assert volume_level == 0.0
 
     # Set the volume to 33
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_SET,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_LEVEL: 0.33,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.33},
         blocking=True,
     )
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.0
-    )
+    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
+    assert volume_level == 0.0
 
     # Un-mute the volume
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_MUTE,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_MUTED: False,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.33
-    )
+    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
+    assert volume_level == 0.33
 
 
 async def test_cvt_kitchen_speakers_control(hass):
@@ -383,75 +348,43 @@ async def test_cvt_computer_speakers_track(hass):
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
 
-    assert await async_setup_component(
-        hass,
-        "input_number",
-        {
-            "input_number": {
-                "set_value_script": {"initial": 100, "min": 0, "max": 200},
-                "template_number": {
-                    "initial": 50,
-                    "min": 0,
-                    "max": 100,
-                    "entity_id": "media_player.computer_speakers",
-                    "value_template": "{{ (not is_state('media_player.computer_speakers', 'off')) | int | multiply(100) }}",
-                    "set_value_script": {
-                        "service": "input_number.set_value",
-                        "data_template": {
-                            "entity_id": "input_number.set_value_script",
-                            "value": "{{ value | multiply(2) }}",
-                        },
-                    },
-                },
-            }
-        },
-    )
-
     await hass.async_start()
     await hass.async_block_till_done()
 
-    assert float(hass.states.get("input_number.template_number").state) == 0.0
+    mp_entity_id = "media_player.computer_speakers"
+    cvt_entity_id = "cast_volume_tracker.computer_speakers"
 
     # Turn the speaker on
     await hass.services.async_call(
-        MP_DOMAIN,
-        SERVICE_TURN_ON,
-        {ATTR_ENTITY_ID: "media_player.computer_speakers"},
-        blocking=True,
+        MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
     )
 
     computer_speakers = hass.data["cast_mock"]["computer_speakers"]
     _LOGGER.critical(computer_speakers.state_)
     _LOGGER.critical(computer_speakers.volume_level_)
     hass.states.async_set(
-        "media_player.computer_speakers",
+        mp_entity_id,
         computer_speakers.state_,
         attributes={"volume_level": computer_speakers.volume_level_},
     )
     await hass.async_block_till_done()
-    assert float(hass.states.get("input_number.template_number").state) == 100.0
-    assert hass.states.get("cast_volume_tracker.computer_speakers").attributes[
-        "cast_is_on"
-    ]
-    assert hass.data["cast_volume_tracker"]["computer_speakers"].cast_is_on
+
+    cast_is_on = hass.states.get(cvt_entity_id).attributes["cast_is_on"]
+    assert cast_is_on
 
     if 1:
         return
 
     assert hass.data["cast_mock"]["computer_speakers"].state_ == STATE_IDLE
-    assert (
-        hass.states.get("media_player.computer_speakers").attributes["volume_level"]
-        == 0.321
-    )
+    assert hass.states.get(mp_entity_id).attributes["volume_level"] == 0.321
     # assert hass.data[MP_DOMAIN]["computer_speakers"].volume_level_ == 0.321
     # assert hass.states.get("media_player.computer_speakers").attributes["volume_level"] == 0.321
+
+    # While the speakers are off, set the volume to 10
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_SET,
-        {
-            ATTR_ENTITY_ID: "cast_volume_tracker.computer_speakers",
-            ATTR_MEDIA_VOLUME_LEVEL: 0.123,
-        },
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.123},
         blocking=True,
     )
     await hass.async_block_till_done()
