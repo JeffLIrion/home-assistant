@@ -24,6 +24,10 @@ from homeassistant.util.yaml.loader import load_yaml
 _LOGGER = logging.getLogger(__name__)
 PWD = os.path.dirname(__file__)
 
+ATTR_CAST_IS_ON = "cast_is_on"
+ATTR_EXPECTED_VOLUME_LEVEL = "expected_volume_level"
+ATTR_VALUE = "value"
+
 MEDIA_PLAYERS = [
     "all_my_speakers",
     "bedroom_mini",
@@ -44,10 +48,74 @@ def check_volume_levels(hass, volume_dict):
     """Check that all volume levels are as expected."""
     return all(
         (
-            hass.states.get(entity_id).attributes("volume_level") == volume_level
+            hass.states.get(entity_id).attributes[ATTR_MEDIA_VOLUME_LEVEL]
+            == volume_level
             for entity_id, volume_level in volume_dict.items()
         )
     )
+
+
+def check_attr(hass, entity_id, expected_value, attr=ATTR_MEDIA_VOLUME_LEVEL):
+    """Check the value of an attribute."""
+    if isinstance(expected_value, float):
+        return float(hass.states.get(entity_id).attributes[attr]) == expected_value
+    if isinstance(expected_value, int):
+        return int(hass.states.get(entity_id).attributes[attr]) == expected_value
+    if isinstance(expected_value, bool):
+        return hass.states.get(entity_id).attributes[attr] is expected_value
+    return hass.states.get(entity_id).attributes[attr] == expected_value
+
+
+def check_cvt(hass, entity_id, attributes):
+    """Check the state attributes of a cast volume tracker."""
+    state_attrs = hass.states.get(entity_id).attributes
+    if (
+        attributes[ATTR_CAST_IS_ON] is not None
+        and state_attrs[ATTR_CAST_IS_ON] is not attributes[ATTR_CAST_IS_ON]
+    ):
+        _LOGGER.critical(
+            "%s = %s",
+            ATTR_CAST_IS_ON,
+            "True" if state_attrs[ATTR_CAST_IS_ON] else "False",
+        )
+        return False
+    if (
+        attributes[ATTR_VALUE] is not None
+        and state_attrs[ATTR_VALUE] != attributes[ATTR_VALUE]
+    ):
+        _LOGGER.critical("%s = %d", ATTR_VALUE, state_attrs[ATTR_VALUE])
+        return False
+    if (
+        attributes[ATTR_MEDIA_VOLUME_LEVEL] is not None
+        and state_attrs[ATTR_MEDIA_VOLUME_LEVEL] != attributes[ATTR_MEDIA_VOLUME_LEVEL]
+    ):
+        _LOGGER.critical(
+            "%s = %f", ATTR_MEDIA_VOLUME_LEVEL, state_attrs[ATTR_MEDIA_VOLUME_LEVEL]
+        )
+        return False
+    if (
+        attributes[ATTR_EXPECTED_VOLUME_LEVEL] is not None
+        and state_attrs[ATTR_EXPECTED_VOLUME_LEVEL]
+        != attributes[ATTR_EXPECTED_VOLUME_LEVEL]
+    ):
+        _LOGGER.critical(
+            "%s = %f",
+            ATTR_EXPECTED_VOLUME_LEVEL,
+            state_attrs[ATTR_EXPECTED_VOLUME_LEVEL],
+        )
+        return False
+    if (
+        attributes[ATTR_MEDIA_VOLUME_MUTED] is not None
+        and state_attrs[ATTR_MEDIA_VOLUME_MUTED]
+        is not attributes[ATTR_MEDIA_VOLUME_MUTED]
+    ):
+        _LOGGER.critical(
+            "%s = %s",
+            ATTR_MEDIA_VOLUME_MUTED,
+            "True" if state_attrs[ATTR_MEDIA_VOLUME_LEVEL] else "False",
+        )
+        return False
+    return True
 
 
 async def test_setup(hass):
@@ -168,7 +236,7 @@ async def test_cast_mock_volume_set_individual(hass):
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_IDLE
-    assert state.attributes["volume_level"] == 0.123
+    assert state.attributes[ATTR_MEDIA_VOLUME_LEVEL] == 0.123
 
 
 async def test_cast_mock_volume_set_group(hass):
@@ -193,12 +261,12 @@ async def test_cast_mock_volume_set_group(hass):
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == STATE_IDLE
-    assert state.attributes["volume_level"] == 0.123
+    assert state.attributes[ATTR_MEDIA_VOLUME_LEVEL] == 0.123
     for member in members:
         member_state = hass.states.get(member)
         assert member_state is not None
         assert member_state.state == STATE_IDLE
-        assert member_state.attributes["volume_level"] == 0.123
+        assert member_state.attributes[ATTR_MEDIA_VOLUME_LEVEL] == 0.123
 
 
 async def test_cast_mock_volume_set_individual_in_group(hass):
@@ -226,7 +294,7 @@ async def test_cast_mock_volume_set_individual_in_group(hass):
     state = hass.states.get(group_entity_id)
     assert state is not None
     assert state.state == STATE_IDLE
-    assert state.attributes["volume_level"] == 0.1
+    assert state.attributes[ATTR_MEDIA_VOLUME_LEVEL] == 0.1
 
     # Set the individual media player's volume
     await hass.services.async_call(
@@ -240,7 +308,7 @@ async def test_cast_mock_volume_set_individual_in_group(hass):
     state = hass.states.get(group_entity_id)
     assert state is not None
     assert state.state == STATE_IDLE
-    assert state.attributes["volume_level"] == 0.2
+    assert state.attributes[ATTR_MEDIA_VOLUME_LEVEL] == 0.2
 
 
 # =========================================================================== #
@@ -253,13 +321,45 @@ async def test_cvt_computer_speakers_control(hass):
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
 
+    await hass.async_start()
+    await hass.async_block_till_done()
+
     mp_entity_id = "media_player.computer_speakers"
     cvt_entity_id = "cast_volume_tracker.computer_speakers"
+
+    cvt_attrs = {
+        ATTR_CAST_IS_ON: False,
+        ATTR_VALUE: 0.0,
+        ATTR_MEDIA_VOLUME_LEVEL: None,
+        ATTR_EXPECTED_VOLUME_LEVEL: 0.0,
+        ATTR_MEDIA_VOLUME_MUTED: True,
+    }
+
+    # Turn the speaker off
+    await hass.services.async_call(
+        MP_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
+    )
+    assert check_attr(hass, cvt_entity_id, False, ATTR_CAST_IS_ON)
+
+    # While the speaker is off, set the volume to 10
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.10},
+        blocking=True,
+    )
+    cvt_attrs[ATTR_VALUE] = 10.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Turn the speaker on
     await hass.services.async_call(
         MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
     )
+    cvt_attrs[ATTR_CAST_IS_ON] = True
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.1
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.1
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Mute the volume
     await hass.services.async_call(
@@ -268,8 +368,10 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
         blocking=True,
     )
-    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
-    assert volume_level == 0.0
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Set the volume to 11
     await hass.services.async_call(
@@ -278,8 +380,10 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.11},
         blocking=True,
     )
-    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
-    assert volume_level == 0.0
+    cvt_attrs[ATTR_VALUE] = 11.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    assert check_attr(hass, mp_entity_id, 0.0)
+    assert check_attr(hass, cvt_entity_id, True, ATTR_MEDIA_VOLUME_MUTED)
 
     # Un-mute the volume
     await hass.services.async_call(
@@ -288,8 +392,10 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
-    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
-    assert volume_level == 0.11
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.11
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.11
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Set the volume to 22
     await hass.services.async_call(
@@ -298,8 +404,10 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.22},
         blocking=True,
     )
-    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
-    assert volume_level == 0.22
+    cvt_attrs[ATTR_VALUE] = 22.0
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.22
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.22
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Mute the volume
     await hass.services.async_call(
@@ -308,8 +416,10 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
         blocking=True,
     )
-    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
-    assert volume_level == 0.0
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Set the volume to 33
     await hass.services.async_call(
@@ -318,8 +428,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.33},
         blocking=True,
     )
-    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
-    assert volume_level == 0.0
+    cvt_attrs[ATTR_VALUE] = 33.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Un-mute the volume
     await hass.services.async_call(
@@ -328,14 +438,19 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
-    volume_level = hass.states.get(mp_entity_id).attributes["volume_level"]
-    assert volume_level == 0.33
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.33
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.33
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
 
 async def test_cvt_kitchen_speakers_control(hass):
     """Test a group with two members."""
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
+
+    await hass.async_start()
+    await hass.async_block_till_done()
 
 
 # =========================================================================== #
