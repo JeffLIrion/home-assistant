@@ -265,6 +265,17 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             CAST_NETWORK[member].set_attributes(True, is_volume_muted=True)
 
         # 1) Set the cast volume tracker volumes
+        _LOGGER.critical(
+            [
+                DOMAIN,
+                SERVICE_VOLUME_SET,
+                {
+                    ATTR_ENTITY_ID: self.cast_volume_trackers,
+                    ATTR_MEDIA_VOLUME_LEVEL: 0.01 * self.value,
+                },
+            ]
+        )
+        # return []
         return [
             [
                 DOMAIN,
@@ -711,6 +722,7 @@ class CastVolumeTrackerEntity(RestoreEntity):
         self._entities = ["{0}.{1}".format(MEDIA_PLAYER_DOMAIN, object_id)]
         self._name = name
         self._cast_volume_tracker = cast_volume_tracker
+        self.count = 0
 
         if off_script:
             self._off_script = Script(hass, off_script)
@@ -791,6 +803,11 @@ class CastVolumeTrackerEntity(RestoreEntity):
 
     async def async_volume_set(self, volume_level=None):
         """Set new volume level."""
+        _LOGGER.critical("%s: async_volume_set", self.entity_id)
+        if self.count > 20:
+            return
+        self.count += 1
+
         if volume_level is None:
             if self.default_volume_template is None:
                 return
@@ -806,37 +823,63 @@ class CastVolumeTrackerEntity(RestoreEntity):
         for args in service_args:
             await self.hass.services.async_call(*args)
 
-        await self.async_update_ha_state()
+        # await self.async_update_ha_state()
+        self._cast_volume_tracker.update(self.hass)
+        self.async_write_ha_state()
 
     async def async_volume_mute(self, is_volume_muted):
         """Mute the volume."""
+        _LOGGER.critical("%s: async_volume_mute", self.entity_id)
+        if self.count > 20:
+            return
+        self.count += 1
+
         service_args = self._cast_volume_tracker.volume_mute(is_volume_muted)
 
         for args in service_args:
             await self.hass.services.async_call(*args)
 
-        await self.async_update_ha_state()
+        # await self.async_update_ha_state()
+        self._cast_volume_tracker.update(self.hass)
+        self.async_write_ha_state()
 
     async def async_volume_down(self):
         """Decrease the volume."""
+        # if self.count > 50:
+        #    return
+        # self.count += 1
+
         service_args = self._cast_volume_tracker.volume_down()
 
         for args in service_args:
             await self.hass.services.async_call(*args)
 
-        await self.async_update_ha_state()
+        # await self.async_update_ha_state()
+        self._cast_volume_tracker.update(self.hass)
+        self.async_write_ha_state()
 
     async def async_volume_up(self):
         """Increase the volume."""
+        # if self.count > 50:
+        #    return
+        # self.count += 1
+
         service_args = self._cast_volume_tracker.volume_up()
 
         for args in service_args:
             await self.hass.services.async_call(*args)
 
-        await self.async_update_ha_state()
+        # await self.async_update_ha_state()
+        self._cast_volume_tracker.update(self.hass)
+        self.async_write_ha_state()
 
     async def async_update(self):
         """Update the state and perform any necessary service calls."""
+        _LOGGER.critical("%s: async_update", self.entity_id)
+        if self.count > 20:
+            return
+        self.count += 1
+
         cast_is_on = self._cast_volume_tracker.cast_is_on
         service_args = self._cast_volume_tracker.update(self.hass)
 
