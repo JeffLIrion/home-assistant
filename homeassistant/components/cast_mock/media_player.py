@@ -123,8 +123,9 @@ class CastMock(MediaPlayerDevice):
         off_members = [member for member in members if member.state_ == STATE_OFF]
         for member in off_members:
             member.state_ = STATE_IDLE
-            attrs = {"volume_level": member.volume_level_}
-            self._hass.states.async_set(member.entity_id_, STATE_IDLE, attributes=attrs)
+            member.async_write_ha_state()
+            # attrs = {"volume_level": member.volume_level_}
+            # self._hass.states.async_set(member.entity_id_, STATE_IDLE, attributes=attrs)
             # await self._hass.async_block_till_done()
 
     async def async_turn_off(self):
