@@ -724,6 +724,7 @@ async def test_kitchen_home(hass):
 
 async def test_kitchen_speakers(hass):
     """Test the Kitchen Speakers cast volume tracker."""
+    # pytest --log-cli-level=CRITICAL  tests/components/cast_volume_tracker/test_cast_volume_tracker.py::test_kitchen_speakers
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
 
@@ -808,8 +809,6 @@ async def test_kitchen_speakers(hass):
     assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
 
-    return
-
     # Turn the media player on
     await hass.services.async_call(
         MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
@@ -819,8 +818,19 @@ async def test_kitchen_speakers(hass):
     cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.10
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.10
+
     cvt_cs_attrs[ATTR_VALUE] = 10.0
+    cvt_cs_attrs[ATTR_CAST_IS_ON] = None
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = None
+
     cvt_kh_attrs[ATTR_VALUE] = 10.0
+    cvt_kh_attrs[ATTR_CAST_IS_ON] = None
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = None
+
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
     assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+    # assert False
