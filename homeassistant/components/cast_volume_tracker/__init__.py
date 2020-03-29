@@ -291,9 +291,9 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
 
         # set the `cast_is_on` and `is_volume_muted` attributes for the speakers in the group
         for member in self.members_start_unmuted:
-            CAST_NETWORK[member].set_attributes(True, is_volume_muted=False)
+            CAST_NETWORK[member].set_attributes(cast_is_on=True, is_volume_muted=False)
         for member in self.members_start_muted:
-            CAST_NETWORK[member].set_attributes(True, is_volume_muted=True)
+            CAST_NETWORK[member].set_attributes(cast_is_on=True, is_volume_muted=True)
 
         # 1) Set the cast volume tracker volumes
         return self.cvt_volume_set(self.cast_volume_trackers, 0.01 * self.value)
@@ -306,7 +306,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         # set the `cast_is_on` and `is_volume_muted` attributes for the speakers in the group
         for member in self.members:
             CAST_NETWORK[member].set_attributes(
-                False, is_volume_muted=CAST_NETWORK[member].mute_when_off
+                cast_is_on=False, is_volume_muted=CAST_NETWORK[member].mute_when_off
             )
 
         # 1) Set the cast volume tracker volumes for members without default values
