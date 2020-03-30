@@ -859,4 +859,133 @@ async def test_kitchen_speakers(hass):
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
 
+    # Un-mute the volume
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
+        blocking=True,
+    )
+
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.10
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.10
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.10
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+    # While the speakers are on and not muted, set the volume to 15
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.15},
+        blocking=True,
+    )
+
+    cvt_attrs[ATTR_VALUE] = 15.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.15
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_cs_attrs[ATTR_VALUE] = 15.0
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.15
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+
+    cvt_kh_attrs[ATTR_VALUE] = 15.0
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.15
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+    # Mute the volume
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
+        blocking=True,
+    )
+
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+    # While the speakers are on and muted, set the volume to 5
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.05},
+        blocking=True,
+    )
+
+    cvt_attrs[ATTR_VALUE] = 5.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_cs_attrs[ATTR_VALUE] = 5.0
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+
+    cvt_kh_attrs[ATTR_VALUE] = 5.0
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+    # Un-mute the volume
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
+        blocking=True,
+    )
+
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.05
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.05
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.05
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+    # Set one media player volume to 0.11
+    await hass.services.async_call(
+        MP_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: mp_kitchen_home, ATTR_MEDIA_VOLUME_LEVEL: 0.11},
+        blocking=True,
+    )
+
+    cvt_attrs[ATTR_VALUE] = 8.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_cs_attrs[ATTR_VALUE] = 8.0
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    # assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+
+    cvt_kh_attrs[ATTR_VALUE] = 8.0
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
+    # assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
     # assert False
