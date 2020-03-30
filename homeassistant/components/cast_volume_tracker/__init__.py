@@ -29,6 +29,8 @@ from homeassistant.helpers.script import Script
 
 _LOGGER = logging.getLogger(__name__)
 
+MAX_COUNT = 50  # DELETE THIS!!!
+
 DOMAIN = "cast_volume_tracker"
 ENTITY_ID_FORMAT = DOMAIN + ".{}"
 
@@ -89,6 +91,7 @@ class CastVolumeTracker:
 
         self.cast_is_on = cast_is_on
         self.cast_volume_level = None
+        self.mp_volume_level = None
 
         self.is_volume_muted = is_volume_muted
         self.value = value
@@ -109,9 +112,9 @@ class CastVolumeTracker:
     @property
     def equilibrium(self):
         """Whether or not the cast volume is at the expected level."""
-        return self.cast_volume_level is not None and round(
-            self.cast_volume_level, 3
-        ) == round(self.expected_volume_level, 3)
+        return self.mp_volume_level is None or round(self.mp_volume_level, 3) == round(
+            self.expected_volume_level, 3
+        )
 
     @property
     def expected_volume_level(self):
@@ -170,6 +173,9 @@ class CastVolumeTracker:
                 return []
             cast_is_on = cast_state_obj.state in CAST_ON_STATES
             cast_volume_level = cast_state_obj.attributes.get(ATTR_MEDIA_VOLUME_LEVEL)
+            self.mp_volume_level = cast_state_obj.attributes.get(
+                ATTR_MEDIA_VOLUME_LEVEL
+            )
         else:
             return []
 
@@ -187,13 +193,13 @@ class CastVolumeTracker:
             return self._update_on_to_off(cast_volume_level)
 
         # On -> On and volume changed
-        if cast_volume_level is not None and round(
+        if self.mp_volume_level is not None and round(
             self.expected_volume_level, 3
-        ) != round(cast_volume_level, 3):
-            return self._update_on_to_on(cast_volume_level)
+        ) != round(self.mp_volume_level, 3):
+            return self._update_on_to_on(self.mp_volume_level)
 
-        if cast_volume_level is not None:
-            self.cast_volume_level = cast_volume_level
+        if self.mp_volume_level is not None:
+            self.cast_volume_level = self.mp_volume_level
 
         return []
 
@@ -720,10 +726,10 @@ class CastVolumeTrackerEntity(RestoreEntity):
 
     async def async_volume_set(self, volume_level=None):
         """Set new volume level."""
-        _LOGGER.critical("%s: async_volume_set", self.entity_id)
-        if self.count > 20:
-            return
-        self.count += 1
+        _LOGGER.error("%s: async_volume_set", self.entity_id)
+        # if self.count > MAX_COUNT:
+        #    return
+        # self.count += 1
 
         if volume_level is None:
             if self.default_volume_template is None:
@@ -746,8 +752,8 @@ class CastVolumeTrackerEntity(RestoreEntity):
 
     async def async_volume_mute(self, is_volume_muted):
         """Mute the volume."""
-        _LOGGER.critical("%s: async_volume_mute", self.entity_id)
-        if self.count > 20:
+        _LOGGER.error("%s: async_volume_mute", self.entity_id)
+        if self.count > MAX_COUNT:
             return
         self.count += 1
 
@@ -762,7 +768,7 @@ class CastVolumeTrackerEntity(RestoreEntity):
 
     async def async_volume_down(self):
         """Decrease the volume."""
-        # if self.count > 50:
+        # if self.count > MAX_COUNT:
         #    return
         # self.count += 1
 
@@ -777,7 +783,7 @@ class CastVolumeTrackerEntity(RestoreEntity):
 
     async def async_volume_up(self):
         """Increase the volume."""
-        # if self.count > 50:
+        # if self.count > MAX_COUNT:
         #    return
         # self.count += 1
 
@@ -792,10 +798,46 @@ class CastVolumeTrackerEntity(RestoreEntity):
 
     async def async_update(self):
         """Update the state and perform any necessary service calls."""
-        _LOGGER.critical("%s: async_update", self.entity_id)
-        if self.count > 20:
-            return
-        self.count += 1
+        if False:
+            if (
+                not hasattr(self._cast_volume_tracker, "parent_is_on")
+                or not self._cast_volume_tracker.parent_is_on
+            ):
+                old_volume = self._cast_volume_tracker.cast_volume_level
+                new_volume = self.hass.states.get(
+                    self._cast_volume_tracker.media_player
+                ).attributes["volume_level"]
+                old_volume_str = (
+                    "None" if old_volume is None else "{:.3f}".format(old_volume)
+                )
+                new_volume_str = (
+                    "None" if new_volume is None else "{:.3f}".format(new_volume)
+                )
+
+                equilibrium = (
+                    "True" if self._cast_volume_tracker.equilibrium else "False"
+                )
+                equilibrium_str = (
+                    "False"
+                    if self._cast_volume_tracker.cast_volume_level is None
+                    else "{:.3f} {}= {:.3f}".format(
+                        round(self._cast_volume_tracker.cast_volume_level, 3),
+                        "=" if self._cast_volume_tracker.equilibrium else "!",
+                        round(self._cast_volume_tracker.expected_volume_level, 3),
+                    )
+                )
+                _LOGGER.critical(
+                    "%s: async_update %s -> %s, equilibrium = %s (%s)",
+                    self.entity_id,
+                    old_volume_str,
+                    new_volume_str,
+                    equilibrium,
+                    equilibrium_str,
+                )
+
+        # if self.count > MAX_COUNT:
+        #    return
+        # self.count += 1
 
         cast_is_on = self._cast_volume_tracker.cast_is_on
         service_args = self._cast_volume_tracker.update(self.hass)
