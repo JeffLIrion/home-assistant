@@ -4,8 +4,10 @@ import logging
 import os
 
 from homeassistant.components.cast_volume_tracker import (
+    ATTR_IS_VOLUME_MANAGEMENT_ENABLED,
     ATTR_MEDIA_PLAYER_VOLUME_LEVEL,
     DOMAIN as CVT_DOMAIN,
+    SERVICE_ENABLE_VOLUME_MANAGEMENT,
 )
 from homeassistant.components.media_player.const import (
     ATTR_MEDIA_VOLUME_LEVEL,
@@ -365,6 +367,14 @@ async def test_cvt_computer_speakers_control(hass, volume_management_enabled=Fal
 
     await hass.async_start()
     await hass.async_block_till_done()
+
+    # Enable / Disable volume management
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_ENABLE_VOLUME_MANAGEMENT,
+        {ATTR_IS_VOLUME_MANAGEMENT_ENABLED: volume_management_enabled},
+        blocking=True,
+    )
 
     mp_entity_id = "media_player.computer_speakers"
     cvt_entity_id = "cast_volume_tracker.computer_speakers"

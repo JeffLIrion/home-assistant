@@ -813,6 +813,12 @@ async def async_setup(hass, config):
         SERVICE_VOLUME_UP, SERVICE_VOLUME_UP_SCHEMA, "async_volume_up"
     )
 
+    component.async_register_entity_service(
+        SERVICE_ENABLE_VOLUME_MANAGEMENT,
+        SERVICE_ENABLE_VOLUME_MANAGEMENT_SCHEMA,
+        "async_enable_volume_management",
+    )
+
     await component.async_add_entities(entities)
     return True
 
@@ -1030,6 +1036,11 @@ class CastVolumeTrackerEntity(RestoreEntity):
         # await self.async_update_ha_state()
         self._cast_volume_tracker.update(self.hass)
         self.async_write_ha_state()
+
+    async def async_enable_volume_management(self, is_volume_management_enabled):
+        """Enable or disable volume management."""
+        for cvt in self.hass.data[DOMAIN].items():
+            cvt.volume_management_enabled = is_volume_management_enabled
 
     async def async_update(self):
         """Update the state and perform any necessary service calls."""
