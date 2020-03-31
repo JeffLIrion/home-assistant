@@ -173,7 +173,6 @@ async def async_setup(hass, config):
                 cfg.get(CONF_DEFAULT_VOLUME_TEMPLATE),
                 cfg[CONF_PARENTS],
                 cfg[CONF_MUTE_WHEN_OFF],
-                bool(cfg.get(CONF_DEFAULT_VOLUME_TEMPLATE)),
             )
             hass.data[DOMAIN][object_id] = cvt
             entities.append(cvt)
@@ -327,8 +326,10 @@ class CastVolumeTracker(RestoreEntity):
         self.is_volume_muted = is_volume_muted
         self.value = value
 
+        # flags
         self.volume_management_enabled = True
 
+        # scripts
         if off_script:
             self._off_script = Script(hass, off_script)
         else:
@@ -339,6 +340,7 @@ class CastVolumeTracker(RestoreEntity):
         else:
             self._on_script = None
 
+        # template
         self.default_volume_template = default_volume_template
         if default_volume_template:
             self.default_volume_template.hass = hass
@@ -516,7 +518,12 @@ class CastVolumeTracker(RestoreEntity):
             [
                 DOMAIN,
                 SERVICE_VOLUME_MUTE,
-                {ATTR_ENTITY_ID: entity_id, ATTR_MEDIA_VOLUME_MUTED: is_volume_muted},
+                {
+                    ATTR_ENTITY_ID: [
+                        ENTITY_ID_FORMAT.format(cvt.object_id) for cvt in entity_id
+                    ],
+                    ATTR_MEDIA_VOLUME_MUTED: is_volume_muted,
+                },
             ]
         ]
 
@@ -756,7 +763,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             default_volume_template,
         )
 
-        # group members (i.e., object IDs)
+        # group members (filled in with object IDs here; updated with the instances by `get_members_and_parents()`)
         self.members = members
         if not members_excluded_when_off:
             self.members_when_off = members
@@ -776,10 +783,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                 member for member in members if member not in members_start_muted
             ]
 
-        # cast volume trackers
-        self.cast_volume_trackers = [
-            ENTITY_ID_FORMAT.format(member) for member in members
-        ]
+        # cast volume trackers (placeholders; updated with the instances by `get_members_and_parents()`)
         self.members_with_default = []
         self.members_without_default = []
 
@@ -867,7 +871,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             self.set_attributes(is_volume_muted=is_volume_muted)
 
             # 1) Mute the cast volume trackers
-            return self.cvt_volume_mute(self.cast_volume_trackers, is_volume_muted)
+            return self.cvt_volume_mute(self.members, is_volume_muted)
 
         return []
 
@@ -933,8 +937,6 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         A list of the parents' object IDs
     mute_when_off : bool
         Whether this speaker should be muted when it is turned off
-    has_default_volume : bool
-        Whether the associated `CastVolumeTrackerEntity` has a default volume template
 
     Attributes
     ----------
@@ -989,8 +991,7 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         on_script,
         default_volume_template,
         parents,
-        mute_when_off=True,
-        has_default_volume=False,
+        mute_when_off,
     ):
         """Initialize a Cast Volume Tracker for an individual speaker."""
         super().__init__(
@@ -1005,7 +1006,7 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
             default_volume_template,
         )
 
-        # groups to which this speaker belongs
+        # groups to which this speaker belongs (object IDs here; updated with the instances by `get_members_and_parents()`))
         if parents is None:
             self.parents = []
         else:
@@ -1015,7 +1016,7 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         self.mute_when_off = mute_when_off
 
         # does this speaker have a default volume template?
-        self.has_default_volume = has_default_volume
+        self.has_default_volume = bool(default_volume_template)
 
     def get_members_and_parents(self):
         """Fill in the `parents`."""
