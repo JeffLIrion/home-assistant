@@ -147,7 +147,12 @@ class CastMock(MediaPlayerDevice):
 
     async def async_set_volume_level(self, volume):
         """Set the volume level."""
-        _LOGGER.critical("Setting volume for %s to %.2f", self.entity_id_, volume)
+        _LOGGER.error(
+            "Setting volume for %s from %.3f to %.3f",
+            self.entity_id_,
+            self.volume_level_,
+            volume,
+        )
         # old_volume_level = self.volume_level_
         self.volume_level_ = volume
         self.async_write_ha_state()
