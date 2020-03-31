@@ -143,7 +143,7 @@ class CastVolumeTracker:
         self.is_volume_muted = is_volume_muted
         self.value = value
 
-        self.volume_management_enabled = False
+        self.volume_management_enabled = True
 
         self.hass = hass
 
@@ -813,10 +813,17 @@ async def async_setup(hass, config):
         SERVICE_VOLUME_UP, SERVICE_VOLUME_UP_SCHEMA, "async_volume_up"
     )
 
-    component.async_register_entity_service(
+    async def async_enable_volume_management(service):
+        """Enable or disable volume management."""
+        is_volume_management_enabled = service.data[ATTR_IS_VOLUME_MANAGEMENT_ENABLED]
+        for cvt in hass.data[DOMAIN].values():
+            cvt.volume_management_enabled = is_volume_management_enabled
+
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_ENABLE_VOLUME_MANAGEMENT,
-        SERVICE_ENABLE_VOLUME_MANAGEMENT_SCHEMA,
-        "async_enable_volume_management",
+        async_enable_volume_management,
+        schema=SERVICE_ENABLE_VOLUME_MANAGEMENT_SCHEMA,
     )
 
     await component.async_add_entities(entities)
