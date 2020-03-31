@@ -235,7 +235,16 @@ class CastVolumeTracker:
 
     def update(self, hass):
         """Update the cast volume tracker."""
-        cast_state_obj = hass.states.get(self.media_player)
+        cast_state_obj = self.hass.states.get(self.media_player)
+
+        if not self.volume_management_enabled:
+            if cast_state_obj.state is not None:
+                self.cast_is_on = cast_state_obj.state in CAST_ON_STATES
+                self.mp_volume_level = cast_state_obj.attributes.get(
+                    ATTR_MEDIA_VOLUME_LEVEL
+                )
+                return []
+
         if cast_state_obj:
             if cast_state_obj.state is None:
                 return []

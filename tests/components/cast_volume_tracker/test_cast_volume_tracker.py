@@ -81,7 +81,7 @@ def sanity_check(hass):
                 _LOGGER.critical(
                     "%s volume is %.3f, %s is %.3f", mp, mp_volume, cvt, cvt_volume
                 )
-                return True
+                return False
 
     return True
 
@@ -358,7 +358,7 @@ async def test_cast_mock_volume_set_individual_in_group(hass):
 #                        Cast Volume Tracker (control)                        #
 #                                                                             #
 # =========================================================================== #
-async def test_cvt_computer_speakers_control(hass):
+async def test_cvt_computer_speakers_control(hass, volume_management_enabled=False):
     """Test an individual cast volume tracker."""
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
@@ -382,7 +382,8 @@ async def test_cvt_computer_speakers_control(hass):
         MP_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
     )
     assert sanity_check(hass)
-    assert check_attr(hass, cvt_entity_id, False, ATTR_CAST_IS_ON)
+    if volume_management_enabled:
+        assert check_attr(hass, cvt_entity_id, False, ATTR_CAST_IS_ON)
 
     # While the speaker is off, set the volume to 10
     await hass.services.async_call(
@@ -393,8 +394,9 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_VALUE] = 10.0
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_VALUE] = 10.0
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Turn the speaker on
     await hass.services.async_call(
@@ -402,11 +404,12 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_CAST_IS_ON] = True
-    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.1
-    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.1
-    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_CAST_IS_ON] = True
+        cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.1
+        cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.1
+        cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Mute the volume
     await hass.services.async_call(
@@ -417,10 +420,11 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
-    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
-    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+        cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
+        cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Set the volume to 11
     await hass.services.async_call(
@@ -431,10 +435,11 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_VALUE] = 11.0
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
-    assert check_attr(hass, mp_entity_id, 0.0)
-    assert check_attr(hass, cvt_entity_id, True, ATTR_MEDIA_VOLUME_MUTED)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_VALUE] = 11.0
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+        assert check_attr(hass, mp_entity_id, 0.0)
+        assert check_attr(hass, cvt_entity_id, True, ATTR_MEDIA_VOLUME_MUTED)
 
     # Un-mute the volume
     await hass.services.async_call(
@@ -445,10 +450,11 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
-    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.11
-    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.11
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+        cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.11
+        cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.11
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Set the volume to 22
     await hass.services.async_call(
@@ -459,10 +465,11 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_VALUE] = 22.0
-    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.22
-    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.22
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_VALUE] = 22.0
+        cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.22
+        cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.22
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Mute the volume
     await hass.services.async_call(
@@ -473,10 +480,11 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
-    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
-    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+        cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
+        cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Set the volume to 33
     await hass.services.async_call(
@@ -487,8 +495,9 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_VALUE] = 33.0
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_VALUE] = 33.0
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     # Un-mute the volume
     await hass.services.async_call(
@@ -499,13 +508,14 @@ async def test_cvt_computer_speakers_control(hass):
     )
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
-    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.33
-    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.33
-    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    if volume_management_enabled:
+        cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+        cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.33
+        cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.33
+        assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
 
-async def test_cvt_kitchen_speakers_control(hass):
+async def _test_cvt_kitchen_speakers_control(hass):
     """Test a group with two members."""
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
     assert await async_setup_component(hass, CVT_DOMAIN, CAST_VOLUME_TRACKER_CONFIG)
