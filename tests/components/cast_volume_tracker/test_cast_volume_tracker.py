@@ -3,7 +3,10 @@
 import logging
 import os
 
-from homeassistant.components.cast_volume_tracker import DOMAIN as CVT_DOMAIN
+from homeassistant.components.cast_volume_tracker import (
+    ATTR_MEDIA_PLAYER_VOLUME_LEVEL,
+    DOMAIN as CVT_DOMAIN,
+)
 from homeassistant.components.media_player.const import (
     ATTR_MEDIA_VOLUME_LEVEL,
     ATTR_MEDIA_VOLUME_MUTED,
@@ -51,6 +54,38 @@ CAST_VOLUME_TRACKER_CONFIG = {CVT_DOMAIN: load_yaml(PWD + "/cast_volume_trackers
 #                                   Helpers                                   #
 #                                                                             #
 # =========================================================================== #
+def sanity_check(hass):
+    """Check that the cast volume trackers are tracking the `cast_mock` media players."""
+    for media_player in MEDIA_PLAYERS:
+        cvt = "{}.{}".format(CVT_DOMAIN, media_player)
+        mp = "{}.{}".format(MP_DOMAIN, media_player)
+        cvt_state_obj = hass.states.get(cvt)
+        mp_state_obj = hass.states.get(mp)
+        cvt_is_on = cvt_state_obj.attributes[ATTR_CAST_IS_ON]
+        mp_is_on = mp_state_obj.state == STATE_IDLE
+
+        if mp_is_on is not cvt_is_on:
+            _LOGGER.critical(
+                "%s is %s, %s is %s",
+                mp,
+                "on" if mp_is_on else "off",
+                cvt,
+                "on" if cvt_is_on else "off",
+            )
+            return False
+
+        if mp_is_on:
+            mp_volume = mp_state_obj.attributes[ATTR_MEDIA_VOLUME_LEVEL]
+            cvt_volume = cvt_state_obj.attributes[ATTR_MEDIA_PLAYER_VOLUME_LEVEL]
+            if abs(mp_volume - cvt_volume) > 1e-5:
+                _LOGGER.critical(
+                    "%s volume is %.3f, %s is %.3f", mp, mp_volume, cvt, cvt_volume
+                )
+                return True
+
+    return True
+
+
 def check_volume_levels(hass, volume_dict):
     """Check that all volume levels are as expected."""
     return all(
@@ -346,6 +381,7 @@ async def test_cvt_computer_speakers_control(hass):
     await hass.services.async_call(
         MP_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
     )
+    assert sanity_check(hass)
     assert check_attr(hass, cvt_entity_id, False, ATTR_CAST_IS_ON)
 
     # While the speaker is off, set the volume to 10
@@ -355,6 +391,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.10},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_VALUE] = 10.0
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
@@ -362,6 +400,8 @@ async def test_cvt_computer_speakers_control(hass):
     await hass.services.async_call(
         MP_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_CAST_IS_ON] = True
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.1
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.1
@@ -375,6 +415,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
@@ -387,6 +429,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.11},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_VALUE] = 11.0
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
     assert check_attr(hass, mp_entity_id, 0.0)
@@ -399,6 +443,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.11
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.11
@@ -411,6 +457,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.22},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_VALUE] = 22.0
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.22
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.22
@@ -423,6 +471,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.0
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
@@ -435,6 +485,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.33},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_VALUE] = 33.0
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
@@ -445,6 +497,8 @@ async def test_cvt_computer_speakers_control(hass):
         {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
+    assert sanity_check(hass)
+
     cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.33
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.33

@@ -37,6 +37,7 @@ ENTITY_ID_FORMAT = DOMAIN + ".{}"
 ATTR_CAST_IS_ON = "cast_is_on"
 ATTR_EXPECTED_VOLUME_LEVEL = "expected_volume_level"
 ATTR_IS_VOLUME_MANAGEMENT_ENABLED = "is_volume_management_enabled"
+ATTR_MEDIA_PLAYER_VOLUME_LEVEL = "media_player_volume_level"
 ATTR_VALUE = "value"
 
 # Configuration parameters
@@ -152,6 +153,7 @@ class CastVolumeTracker:
         return {
             ATTR_CAST_IS_ON: self.cast_is_on,
             ATTR_VALUE: self.value,
+            ATTR_MEDIA_PLAYER_VOLUME_LEVEL: self.mp_volume_level,
             ATTR_MEDIA_VOLUME_LEVEL: self.cast_volume_level,
             ATTR_EXPECTED_VOLUME_LEVEL: self.expected_volume_level,
             ATTR_MEDIA_VOLUME_MUTED: self.is_volume_muted,
