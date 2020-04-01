@@ -4,8 +4,11 @@ import logging
 import os
 
 from homeassistant.components.cast_volume_tracker import (
+    ATTR_CAST_IS_ON,
+    ATTR_EXPECTED_VOLUME_LEVEL,
     ATTR_IS_VOLUME_MANAGEMENT_ENABLED,
     ATTR_MEDIA_PLAYER_VOLUME_LEVEL,
+    ATTR_VALUE,
     DOMAIN as CVT_DOMAIN,
     SERVICE_ENABLE_VOLUME_MANAGEMENT,
 )
@@ -27,10 +30,6 @@ from homeassistant.setup import async_setup_component
 from homeassistant.util.yaml.loader import load_yaml
 
 _LOGGER = logging.getLogger(__name__)
-
-ATTR_CAST_IS_ON = "cast_is_on"
-ATTR_EXPECTED_VOLUME_LEVEL = "expected_volume_level"
-ATTR_VALUE = "value"
 
 MEDIA_PLAYERS = [
     "all_my_speakers",
@@ -79,9 +78,25 @@ def sanity_check(hass):
         if mp_is_on:
             mp_volume = mp_state_obj.attributes[ATTR_MEDIA_VOLUME_LEVEL]
             cvt_volume = cvt_state_obj.attributes[ATTR_MEDIA_PLAYER_VOLUME_LEVEL]
+            cvt_obj = hass.data[CVT_DOMAIN][media_player]
+            expected_volume = cvt_state_obj.attributes[ATTR_EXPECTED_VOLUME_LEVEL]
+            expected_volume = cvt_obj.expected_volume_level
             if abs(mp_volume - cvt_volume) > 1e-5:
                 _LOGGER.critical(
-                    "%s volume is %.3f, %s is %.3f", mp, mp_volume, cvt, cvt_volume
+                    "%s volume is %.3f, %s mp_volume_level is %.3f",
+                    mp,
+                    mp_volume,
+                    cvt,
+                    cvt_volume,
+                )
+                return False
+            if abs(mp_volume - expected_volume) > 1e-5:
+                _LOGGER.critical(
+                    "%s volume is %.3f, %s expected_volume is %.3f",
+                    mp,
+                    mp_volume,
+                    cvt,
+                    expected_volume,
                 )
                 return False
 

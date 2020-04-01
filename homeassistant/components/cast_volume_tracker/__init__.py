@@ -52,6 +52,7 @@ CONF_PARENTS = "parents"
 
 # Other constants
 CAST_ON_STATES = (STATE_IDLE, STATE_PAUSED, STATE_PLAYING)
+MUTE_THRESHOLD = 1e-3
 
 VALUE_MIN = 0.0
 VALUE_MAX = 100.0
@@ -148,7 +149,7 @@ async def async_setup(hass, config):
             cast_volume_level = cast_state_obj.attributes.get(ATTR_MEDIA_VOLUME_LEVEL)
 
             if cast_volume_level is not None:
-                is_volume_muted = cast_volume_level > 1e-3
+                is_volume_muted = cast_volume_level < MUTE_THRESHOLD
                 value = 100.0 * cast_volume_level
             else:
                 is_volume_muted = cfg[CONF_MUTE_WHEN_OFF]
@@ -387,6 +388,13 @@ class CastVolumeTracker(RestoreEntity):
         )
 
     @property
+    def expected_value(self):
+        """Get the expected value, based on ``self.mp_volume_level`` and stuff..."""
+        if self.is_volume_muted or self.mp_volume_level is None:
+            return self.value
+        return 100.0 * self.mp_volume_level
+
+    @property
     def expected_volume_level(self):
         """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
         raise NotImplementedError
@@ -602,6 +610,9 @@ class CastVolumeTracker(RestoreEntity):
             self.mp_volume_level = cast_state_obj.attributes.get(
                 ATTR_MEDIA_VOLUME_LEVEL
             )
+            if self.mp_volume_level is not None:
+                self.is_volume_muted = self.mp_volume_level < MUTE_THRESHOLD
+            self.value = self.expected_value
             return []
 
         cast_is_on = cast_state_obj.state in CAST_ON_STATES
