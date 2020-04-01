@@ -1090,7 +1090,7 @@ async def test_kitchen_speakers(hass):
     cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
-
+    return
     # Un-mute the volume
     await hass.services.async_call(
         CVT_DOMAIN,

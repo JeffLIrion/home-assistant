@@ -319,12 +319,14 @@ class CastVolumeTracker(RestoreEntity):
         self._entities = ["{0}.{1}".format(MEDIA_PLAYER_DOMAIN, object_id)]
         self._name = name
 
-        # state attributes
-        self.cast_is_on = cast_is_on
+        # state attributes - floats
+        self.value = value
         self.cast_volume_level = None
         self.mp_volume_level = None
+
+        # state attributes - booleans
+        self.cast_is_on = cast_is_on
         self.is_volume_muted = is_volume_muted
-        self.value = value
 
         # flags
         self.volume_management_enabled = True
@@ -387,7 +389,7 @@ class CastVolumeTracker(RestoreEntity):
     @property
     def expected_volume_level(self):
         """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
-        return 0.0 if self.is_volume_muted else 0.01 * self.value
+        raise NotImplementedError
 
     # ======================================================================= #
     #                                                                         #
@@ -493,6 +495,10 @@ class CastVolumeTracker(RestoreEntity):
 
     async def async_update(self):
         """Update the state and perform any necessary service calls."""
+        if not self.volume_management_enabled:
+            self._update()
+            return
+
         cast_is_on = self.cast_is_on
         service_args = self._update()
 
@@ -786,6 +792,18 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         self.members_with_default = []
         self.members_without_default = []
 
+    @property
+    def expected_volume_level(self):
+        """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
+        return (
+            0.0
+            if self.is_volume_muted
+            else 0.01
+            * self.value
+            * sum((not member.is_volume_muted for member in self.members))
+            / len(self.members)
+        )
+
     def get_members_and_parents(self):
         """Fill in the `members*` attributes."""
         self.members = [self.hass.data[DOMAIN][member] for member in self.members]
@@ -1016,6 +1034,11 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
 
         # does this speaker have a default volume template?
         self.has_default_volume = bool(default_volume_template)
+
+    @property
+    def expected_volume_level(self):
+        """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
+        return 0.0 if self.is_volume_muted else 0.01 * self.value
 
     def get_members_and_parents(self):
         """Fill in the `parents`."""
