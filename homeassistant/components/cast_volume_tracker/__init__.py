@@ -582,56 +582,59 @@ class CastVolumeTracker(RestoreEntity):
         """Update the cast volume tracker."""
         cast_state_obj = self.hass.states.get(self.media_player)
 
-        if not self.volume_management_enabled:
-            if cast_state_obj.state is not None:
-                self.cast_is_on = cast_state_obj.state in CAST_ON_STATES
-                self.mp_volume_level = cast_state_obj.attributes.get(
-                    ATTR_MEDIA_VOLUME_LEVEL
-                )
-                return []
+        # The state object could not be found
+        if not cast_state_obj:
+            return []
 
-        if cast_state_obj:
-            if cast_state_obj.state is None:
-                return []
-            cast_is_on = cast_state_obj.state in CAST_ON_STATES
-            cast_volume_level = cast_state_obj.attributes.get(ATTR_MEDIA_VOLUME_LEVEL)
+        # The state is unknown / unavailable
+        if cast_state_obj.state is None:
+            return []
+
+        # Track only, don't manage the volume
+        if not self.volume_management_enabled:
+            self.cast_is_on = cast_state_obj.state in CAST_ON_STATES
             self.mp_volume_level = cast_state_obj.attributes.get(
                 ATTR_MEDIA_VOLUME_LEVEL
             )
-        else:
             return []
+
+        cast_is_on = cast_state_obj.state in CAST_ON_STATES
+        old_mp_volume_level = self.mp_volume_level
+        self.mp_volume_level = cast_state_obj.attributes.get(ATTR_MEDIA_VOLUME_LEVEL)
 
         # Off -> Off
         if not self.cast_is_on and not cast_is_on:
-            self.cast_volume_level = cast_volume_level
+            self.cast_volume_level = self.mp_volume_level
             return []
 
         # Off -> On
         if not self.cast_is_on and cast_is_on:
-            return self._update_off_to_on(cast_volume_level)
+            return self._update_off_to_on()
 
         # On -> Off
         if self.cast_is_on and not cast_is_on:
-            return self._update_on_to_off(cast_volume_level)
+            return self._update_on_to_off()
 
         # On -> On and volume changed
-        if self.mp_volume_level is not None and round(
-            self.expected_volume_level, 3
-        ) != round(self.mp_volume_level, 3):
-            return self._update_on_to_on(self.mp_volume_level)
+        if (
+            self.mp_volume_level is not None
+            and round(self.expected_volume_level, 3) != round(self.mp_volume_level, 3)
+            and round(self.expected_volume_level, 3) == round(old_mp_volume_level, 3)
+        ):
+            return self._update_on_to_on()
 
         if self.mp_volume_level is not None:
             self.cast_volume_level = self.mp_volume_level
 
         return []
 
-    def _update_on_to_off(self, cast_volume_level):
+    def _update_on_to_off(self):
         raise NotImplementedError
 
-    def _update_off_to_on(self, cast_volume_level):
+    def _update_off_to_on(self):
         raise NotImplementedError
 
-    def _update_on_to_on(self, cast_volume_level):
+    def _update_on_to_on(self):
         raise NotImplementedError
 
     def _volume_mute(self, is_volume_muted):
@@ -806,7 +809,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             member for member in self.members if not member.has_default_volume
         ]
 
-    def _update_off_to_on(self, cast_volume_level):
+    def _update_off_to_on(self):
         self.cast_is_on = True
         self.is_volume_muted = False
         self.value = sum([member.value for member in self.members_when_off]) / len(
@@ -823,9 +826,9 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         # 1) Set the cast volume tracker volumes
         return self.cvt_volume_set(self.members, 0.01 * self.value)
 
-    def _update_on_to_off(self, cast_volume_level):
+    def _update_on_to_off(self):
         self.cast_is_on = False
-        self.cast_volume_level = cast_volume_level
+        self.cast_volume_level = self.mp_volume_level
         self.is_volume_muted = True
 
         # set the `cast_is_on` and `is_volume_muted` attributes for the speakers in the group
@@ -840,11 +843,11 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             self.members_without_default, 0.01 * self.value
         ) + self.cvt_volume_set(self.members_with_default, None)
 
-    def _update_on_to_on(self, cast_volume_level):
+    def _update_on_to_on(self):
         if not self.equilibrium:
             return []
 
-        self.cast_volume_level = cast_volume_level
+        self.cast_volume_level = self.mp_volume_level
 
         if all([member.is_volume_muted for member in self.members]):
             self.is_volume_muted = True
@@ -1027,9 +1030,9 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         """Whether or not a parent group is playing."""
         return any([parent.cast_is_on for parent in self.parents])
 
-    def _update_off_to_on(self, cast_volume_level):
+    def _update_off_to_on(self):
         if self.parent_is_on:
-            self.cast_volume_level = cast_volume_level
+            self.cast_volume_level = self.mp_volume_level
             return []
 
         self.cast_is_on = True
@@ -1039,8 +1042,8 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         # 1) Set the media player volume
         return self.mp_volume_set(self.media_player, self.expected_volume_level)
 
-    def _update_on_to_off(self, cast_volume_level):
-        self.cast_volume_level = cast_volume_level
+    def _update_on_to_off(self):
+        self.cast_volume_level = self.mp_volume_level
         if self.parent_is_on:
             return []
 
@@ -1054,8 +1057,8 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         # 1) Set the media player volume
         return self.mp_volume_set(self.media_player, self.expected_volume_level)
 
-    def _update_on_to_on(self, cast_volume_level):
-        self.cast_volume_level = cast_volume_level
+    def _update_on_to_on(self):
+        self.cast_volume_level = self.mp_volume_level
         if self.parent_is_on:
             return []
 
