@@ -599,7 +599,7 @@ class CastVolumeTracker(RestoreEntity):
             return []
 
         cast_is_on = cast_state_obj.state in CAST_ON_STATES
-        old_mp_volume_level = self.mp_volume_level
+        old_equilibrium = self.equilibrium
         self.mp_volume_level = cast_state_obj.attributes.get(ATTR_MEDIA_VOLUME_LEVEL)
 
         # Off -> Off
@@ -616,11 +616,7 @@ class CastVolumeTracker(RestoreEntity):
             return self._update_on_to_off()
 
         # On -> On and volume changed
-        if (
-            self.mp_volume_level is not None
-            and round(self.expected_volume_level, 3) != round(self.mp_volume_level, 3)
-            and round(self.expected_volume_level, 3) == round(old_mp_volume_level, 3)
-        ):
+        if self.mp_volume_level is not None and old_equilibrium:
             return self._update_on_to_on()
 
         if self.mp_volume_level is not None:
@@ -844,7 +840,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         ) + self.cvt_volume_set(self.members_with_default, None)
 
     def _update_on_to_on(self):
-        if not self.equilibrium:
+        if not self.equilibrium and False:
             return []
 
         self.cast_volume_level = self.mp_volume_level
@@ -1080,6 +1076,15 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
 
     def _volume_set(self, volume_level):
         """Set the volume."""
+        """# If a parent is on, set its volume instead
+        if self.parent_is_on:
+            if self.is_volume_muted:
+                return []
+
+            parent = next((p for p in self.parents if p.cast_is_on))
+            volume_level = parent.mp_volume_level + (volume_level - self.mp_volume_level) / len(parent.members)
+            return self.cvt_volume_set(parent.entity_id, volume_level)"""
+
         self.set_attributes(value=100.0 * volume_level)
 
         # 1) Set the media player volume
