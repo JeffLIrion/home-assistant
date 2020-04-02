@@ -1654,12 +1654,14 @@ async def test_all_my_speakers(hass):
     )
     await hass.async_block_till_done()
     assert sanity_check(hass)
-    return
 
     cvt_attrs[ATTR_VALUE] = 5.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.05
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.05
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     cvt_member_attrs[ATTR_VALUE] = 5.0
+    cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.05
     for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
 
@@ -1693,10 +1695,8 @@ async def test_all_my_speakers(hass):
     await hass.async_block_till_done()
     assert sanity_check(hass)
 
-    cvt_attrs[ATTR_VALUE] = 7.0
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
-    cvt_member_attrs[ATTR_VALUE] = 7.0
     for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
 
@@ -1711,9 +1711,12 @@ async def test_all_my_speakers(hass):
     assert sanity_check(hass)
 
     cvt_attrs[ATTR_VALUE] = 9.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.09
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.09
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     cvt_member_attrs[ATTR_VALUE] = 9.0
+    cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.09
     for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
 
@@ -1728,9 +1731,12 @@ async def test_all_my_speakers(hass):
     assert sanity_check(hass)
 
     cvt_attrs[ATTR_VALUE] = 8.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.08
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     cvt_member_attrs[ATTR_VALUE] = 8.0
+    cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
     for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
 
@@ -1752,6 +1758,8 @@ async def test_all_my_speakers(hass):
         assert check_cvt(hass, cvt, cvt_member_attrs)
 
     cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_kh_attrs[ATTR_CAST_IS_ON] = True
+    cvt_kh_attrs[ATTR_VALUE] = 8.0
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
 
