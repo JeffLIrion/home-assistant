@@ -397,11 +397,11 @@ class CastVolumeTracker(RestoreEntity):
         )
 
     @property
-    def equilibrium_prev(self):
+    def equilibrium_prev_unused(self):
         """Whether or not the cast volume was at the expected level."""
         return self.mp_volume_level_prev is None or round(
             self.mp_volume_level_prev, 3
-        ) == round(self.expected_volume_level_prev, 3)
+        ) == round(self.expected_volume_level_prev_unused, 3)
 
     @property
     def expected_value(self):
@@ -416,7 +416,7 @@ class CastVolumeTracker(RestoreEntity):
         raise NotImplementedError
 
     @property
-    def expected_volume_level_prev(self):
+    def expected_volume_level_prev_unused(self):
         """Get the expected cast volume level, based on ``self.value_prev`` and ``self.is_volume_muted``."""
         raise NotImplementedError
 
@@ -866,7 +866,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         )
 
     @property
-    def expected_volume_level_prev(self):
+    def expected_volume_level_prev_unused(self):
         """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
         return (
             0.0
@@ -1170,7 +1170,7 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         return 0.0 if self.is_volume_muted else 0.01 * self.value
 
     @property
-    def expected_volume_level_prev(self):
+    def expected_volume_level_prev_unused(self):
         """Get the expected cast volume level, based on ``self.value_prev`` and ``self.is_volume_muted``."""
         return 0.0 if self.is_volume_muted else 0.01 * self.value_prev
 
