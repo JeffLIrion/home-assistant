@@ -658,11 +658,15 @@ class CastVolumeTracker(RestoreEntity):
             return self._update_on_to_off()
 
         # On -> On and volume changed
-        if self.mp_volume_level is not None and self.equilibrium:
+        if (
+            self.mp_volume_level is not None
+            and self.mp_volume_level is not None
+            and (
+                self.mp_volume_level_prev is None
+                or round(self.mp_volume_level, 3) != round(self.mp_volume_level_prev, 3)
+            )
+        ):
             return self._update_on_to_on()
-
-        if self.mp_volume_level is not None:
-            self.cast_volume_level = self.mp_volume_level
 
         return []
 
@@ -911,15 +915,12 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         ) + self.cvt_volume_set(self.members_with_default, None)
 
     def _update_on_to_on(self):
-        if not self.equilibrium and False:
-            return []
+        self.is_volume_muted = all([member.is_volume_muted for member in self.members])
 
         self.cast_volume_level = self.mp_volume_level
 
-        if all([member.is_volume_muted for member in self.members]):
-            self.is_volume_muted = True
-        else:
-            self.is_volume_muted = False
+        if not self.equilibrium:
+            return []
 
         if not self.is_volume_muted:
             self.value_prev = self.value
@@ -1141,7 +1142,7 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
 
     def _update_on_to_on(self):
         self.cast_volume_level = self.mp_volume_level
-        if self.parent_is_on:
+        if self.parent_is_on or not self.equilibrium:
             return []
 
         if not self.is_volume_muted:
