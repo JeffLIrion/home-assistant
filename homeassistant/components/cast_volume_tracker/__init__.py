@@ -919,18 +919,19 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
 
         self.cast_volume_level = self.mp_volume_level
 
-        # old_equilibrium = self.mp_volume_level_prev is None or round(self.mp_volume_level_prev, 3) == round(self.expected_volume_level, 3)
+        old_equilibrium = self.mp_volume_level_prev is None or round(
+            self.mp_volume_level_prev, 3
+        ) == round(self.expected_volume_level, 3)
         if not self.equilibrium:
-            if self.mp_volume_level_prev is not None and round(
-                self.mp_volume_level_prev, 3
-            ) != round(self.expected_volume_level, 3):
+            # if self.mp_volume_level_prev is not None and round(self.mp_volume_level_prev, 3) != round(self.expected_volume_level, 3):
+            if not old_equilibrium:
                 return []
 
         cvt_changed = any(
             (round(member.value, 3) != round(self.value, 3) for member in self.members)
         )
         if not self.is_volume_muted:
-            if self.equilibrium or cvt_changed:
+            if self.equilibrium or cvt_changed or old_equilibrium:
                 self.value_prev = self.value
                 self.value = (
                     100.0
@@ -938,6 +939,8 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                     * len(self.members)
                     / sum([not member.is_volume_muted for member in self.members])
                 )
+        if old_equilibrium:
+            self.mp_volume_level = self.mp_volume_level_prev
 
         # 1) Set the cast volume trackers
         return self.cvt_volume_set(self.members, 0.01 * self.value) * 2

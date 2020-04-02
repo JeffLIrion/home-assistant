@@ -1252,17 +1252,17 @@ async def test_kitchen_speakers(hass):
     cvt_attrs[ATTR_VALUE] = 8.0
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.08
-    # assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     cvt_cs_attrs[ATTR_VALUE] = 8.0
     cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
     cvt_cs_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
-    # assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
 
     cvt_kh_attrs[ATTR_VALUE] = 8.0
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
     cvt_kh_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
-    # assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
 
     # Set the cast volume tracker volume to 0.08
     await hass.services.async_call(
@@ -1307,12 +1307,12 @@ async def test_kitchen_speakers(hass):
     cvt_cs_attrs[ATTR_VALUE] = 11.0
     cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.11
     cvt_cs_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
-    # assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
 
     cvt_kh_attrs[ATTR_VALUE] = 11.0
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.11
     cvt_kh_attrs[ATTR_MEDIA_VOLUME_LEVEL] = None
-    # assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
 
     # Set the cast volume tracker volume to 0.08
     await hass.services.async_call(
