@@ -1550,7 +1550,7 @@ async def test_all_my_speakers(hass):
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_MUTE,
-        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
     await hass.async_block_till_done()
@@ -1565,7 +1565,6 @@ async def test_all_my_speakers(hass):
     cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.10
     for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
-    return
 
     # While the speakers are on and not muted, set the volume to 15
     await hass.services.async_call(
@@ -1621,28 +1620,30 @@ async def test_all_my_speakers(hass):
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     cvt_member_attrs[ATTR_VALUE] = 7.0
-    for cvt in cast_volume_trackers:
+    for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
 
     # Un-mute the volume
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_MUTE,
-        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: True},
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_MUTED: False},
         blocking=True,
     )
     await hass.async_block_till_done()
     assert sanity_check(hass)
 
-    """cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_attrs[ATTR_VALUE] = 7.0
+    cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.07
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.07
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
+    cvt_member_attrs[ATTR_VALUE] = 7.0
     cvt_member_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.07
     for cvt in cast_volume_trackers_all:
-        assert check_cvt(hass, cvt, cvt_member_attrs)"""
+        assert check_cvt(hass, cvt, cvt_member_attrs)
 
     # Set the cast volume tracker volume to 0.05
     await hass.services.async_call(
@@ -1653,6 +1654,7 @@ async def test_all_my_speakers(hass):
     )
     await hass.async_block_till_done()
     assert sanity_check(hass)
+    return
 
     cvt_attrs[ATTR_VALUE] = 5.0
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
