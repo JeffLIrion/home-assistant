@@ -298,7 +298,7 @@ class CastVolumeTracker(RestoreEntity):
     value : float
         The value of the `CastVolumeTracker`
     value_prev : float
-        The previous value of the `CastVolumeTracker`
+        The previous value of the `CastVolumeTracker` (not needed)
     volume_management_enabled : bool
         Whether volume management is enabled
 
@@ -397,13 +397,6 @@ class CastVolumeTracker(RestoreEntity):
         )
 
     @property
-    def equilibrium_prev_unused(self):
-        """Whether or not the cast volume was at the expected level."""
-        return self.mp_volume_level_prev is None or round(
-            self.mp_volume_level_prev, 3
-        ) == round(self.expected_volume_level_prev_unused, 3)
-
-    @property
     def expected_value(self):
         """Get the expected value, based on ``self.mp_volume_level`` and stuff..."""
         if self.is_volume_muted or self.mp_volume_level is None:
@@ -413,11 +406,6 @@ class CastVolumeTracker(RestoreEntity):
     @property
     def expected_volume_level(self):
         """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
-        raise NotImplementedError
-
-    @property
-    def expected_volume_level_prev_unused(self):
-        """Get the expected cast volume level, based on ``self.value_prev`` and ``self.is_volume_muted``."""
         raise NotImplementedError
 
     # ======================================================================= #
@@ -669,7 +657,6 @@ class CastVolumeTracker(RestoreEntity):
 
         # On -> Off
         if self.cast_is_on_prev and not self.cast_is_on:
-            _LOGGER.critical("_update_on_to_off()")
             return self._update_on_to_off()
 
         # On -> On and volume changed
@@ -795,7 +782,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
     value : float
         The value of the `CastVolumeTracker`
     value_prev : float
-        The previous value of the `CastVolumeTracker`
+        The previous value of the `CastVolumeTracker` (not needed)
     volume_management_enabled : bool
         Whether volume management is enabled
 
@@ -861,18 +848,6 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             if self.is_volume_muted
             else 0.01
             * self.value
-            * sum((not member.is_volume_muted for member in self.members))
-            / len(self.members)
-        )
-
-    @property
-    def expected_volume_level_prev_unused(self):
-        """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
-        return (
-            0.0
-            if self.is_volume_muted
-            else 0.01
-            * self.value_prev
             * sum((not member.is_volume_muted for member in self.members))
             / len(self.members)
         )
@@ -949,7 +924,6 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             #   EXAMPLE: the `cast_volume_tracker.volume_set` service was used
             #   to change the volume for the group
             if self.equilibrium:
-                _LOGGER.critical("CASE 1")
                 self.value_prev = self.value
                 self.value = (
                     100.0
@@ -970,7 +944,6 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                     for member in self.members
                 )
             ):
-                _LOGGER.critical("CASE 2")
                 self.value_prev = self.value
                 self.value = (
                     100.0
@@ -986,7 +959,6 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             #   EXAMPLE: the `media_player.volume_set` service was used to
             #   change the volume for a member
             elif old_equilibrium:
-                _LOGGER.critical("CASE 3")
                 self.value_prev = self.value
                 self.value = (
                     100.0
@@ -1122,7 +1094,7 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
     value : float
         The value of the `CastVolumeTracker`
     value_prev : float
-        The previous value of the `CastVolumeTracker`
+        The previous value of the `CastVolumeTracker` (not needed)
     volume_management_enabled : bool
         Whether volume management is enabled
 
@@ -1171,11 +1143,6 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
     def expected_volume_level(self):
         """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
         return 0.0 if self.is_volume_muted else 0.01 * self.value
-
-    @property
-    def expected_volume_level_prev_unused(self):
-        """Get the expected cast volume level, based on ``self.value_prev`` and ``self.is_volume_muted``."""
-        return 0.0 if self.is_volume_muted else 0.01 * self.value_prev
 
     def get_members_and_parents(self):
         """Fill in the `parents`."""
