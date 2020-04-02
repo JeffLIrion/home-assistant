@@ -383,8 +383,7 @@ class CastVolumeTracker(RestoreEntity):
         return {
             ATTR_CAST_IS_ON: self.cast_is_on,
             ATTR_VALUE: self.value,
-            ATTR_MEDIA_PLAYER_VOLUME_LEVEL: self.mp_volume_level,
-            ATTR_MEDIA_VOLUME_LEVEL: self.cast_volume_level,
+            ATTR_MEDIA_VOLUME_LEVEL: self.mp_volume_level,
             ATTR_EXPECTED_VOLUME_LEVEL: self.expected_volume_level,
             ATTR_MEDIA_VOLUME_MUTED: self.is_volume_muted,
         }
@@ -877,7 +876,6 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         self.value = sum([member.value for member in self.members_when_off]) / len(
             self.members_when_off
         )
-        self.cast_volume_level = self.expected_volume_level
 
         # set the `cast_is_on` and `is_volume_muted` attributes for the speakers in the group
         for member in self.members_start_unmuted:
@@ -1159,7 +1157,6 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
             return []
 
         self.is_volume_muted = False
-        self.cast_volume_level = self.expected_volume_level
 
         # 1) Set the media player volume
         return self.mp_volume_set(self.media_player, self.expected_volume_level)

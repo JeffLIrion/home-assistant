@@ -7,7 +7,6 @@ from homeassistant.components.cast_volume_tracker import (
     ATTR_CAST_IS_ON,
     ATTR_EXPECTED_VOLUME_LEVEL,
     ATTR_IS_VOLUME_MANAGEMENT_ENABLED,
-    ATTR_MEDIA_PLAYER_VOLUME_LEVEL,
     ATTR_VALUE,
     DOMAIN as CVT_DOMAIN,
     SERVICE_ENABLE_VOLUME_MANAGEMENT,
@@ -80,7 +79,7 @@ def sanity_check(hass):
 
         if mp_is_on:
             mp_volume = mp_state_obj.attributes[ATTR_MEDIA_VOLUME_LEVEL]
-            cvt_volume = cvt_state_obj.attributes[ATTR_MEDIA_PLAYER_VOLUME_LEVEL]
+            cvt_volume = cvt_state_obj.attributes[ATTR_MEDIA_VOLUME_LEVEL]
             cvt_obj = hass.data[CVT_DOMAIN][media_player]
             expected_volume = cvt_obj.expected_volume_level
             if abs(mp_volume - cvt_volume) > 1e-5:
