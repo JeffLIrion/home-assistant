@@ -1396,12 +1396,13 @@ async def test_all_my_speakers(hass):
     cvt_entity_id = "cast_volume_tracker.all_my_speakers"
     mp_entity_id = "media_player.all_my_speakers"
 
+    cvt_kitchen_home = "cast_volume_tracker.kitchen_home"
+    mp_kitchen_home = "media_player.kitchen_home"
     cast_volume_trackers = [
         "cast_volume_tracker.bedroom_speakers",
         "cast_volume_tracker.computer_speakers",
         "cast_volume_tracker.living_room_speakers",
     ]
-    cvt_kitchen_home = "cast_volume_tracker.kitchen_home"
     cast_volume_trackers_all = cast_volume_trackers + [cvt_kitchen_home]
 
     cvt_attrs = {
@@ -1635,5 +1636,114 @@ async def test_all_my_speakers(hass):
     assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     cvt_member_attrs[ATTR_VALUE] = 5.0
+    for cvt in cast_volume_trackers_all:
+        assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    # Set one media player volume to 0.13
+    await hass.services.async_call(
+        MP_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: mp_kitchen_home, ATTR_MEDIA_VOLUME_LEVEL: 0.13},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
+
+    cvt_attrs[ATTR_VALUE] = 7.0
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.07
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.07
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_member_attrs[ATTR_VALUE] = 7.0
+    cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.07
+    for cvt in cast_volume_trackers_all:
+        assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    # Set the cast volume tracker volume to 0.07
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.07},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
+
+    cvt_attrs[ATTR_VALUE] = 7.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_member_attrs[ATTR_VALUE] = 7.0
+    for cvt in cast_volume_trackers_all:
+        assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    # Set one cast volume tracker volume to 0.15
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: cvt_kitchen_home, ATTR_MEDIA_VOLUME_LEVEL: 0.15},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
+
+    cvt_attrs[ATTR_VALUE] = 9.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_member_attrs[ATTR_VALUE] = 9.0
+    for cvt in cast_volume_trackers_all:
+        assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    # Set the cast volume tracker volume to 0.08
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_SET,
+        {ATTR_ENTITY_ID: cvt_entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.08},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
+
+    cvt_attrs[ATTR_VALUE] = 8.0
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    cvt_member_attrs[ATTR_VALUE] = 8.0
+    for cvt in cast_volume_trackers_all:
+        assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    # Mute the volume for one speaker
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {ATTR_ENTITY_ID: cvt_kitchen_home, ATTR_MEDIA_VOLUME_MUTED: True},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
+
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.06
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.06
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
     for cvt in cast_volume_trackers:
+        assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+    # Un-mute the volume for one speaker
+    await hass.services.async_call(
+        CVT_DOMAIN,
+        SERVICE_VOLUME_MUTE,
+        {ATTR_ENTITY_ID: cvt_kitchen_home, ATTR_MEDIA_VOLUME_MUTED: False},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
+
+    cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
+    cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.08
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+
+    for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
