@@ -31,3 +31,10 @@ volume_down:
     entity_id:
       description: Name(s) of entities to turn volume down on.
       example: 'cast_volume_tracker.kitchen_speakers'
+
+enable_volume_management:
+  description: Enable or disable volume management.
+  fields:
+    is_volume_management_enabled:
+      description: True/false for enable/disable.
+      example: true
