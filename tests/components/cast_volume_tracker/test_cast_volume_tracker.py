@@ -1383,8 +1383,28 @@ async def test_kitchen_speakers(hass):
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
 
+    # Turn off the media player
+    await hass.services.async_call(
+        MP_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
 
-async def test_all_my_speakers(hass):
+    assert check_attr(hass, cvt_entity_id, False, ATTR_CAST_IS_ON)
+
+    cvt_cs_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_cs_attrs[ATTR_CAST_IS_ON] = False
+    cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    assert check_cvt(hass, cvt_computer_speakers, cvt_cs_attrs)
+
+    cvt_kh_attrs[ATTR_VALUE] = 60.0
+    cvt_kh_attrs[ATTR_CAST_IS_ON] = False
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.6
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
+
+
+async def _test_all_my_speakers(hass):
     """Test the All My Speakers cast volume tracker."""
     # pytest --log-cli-level=CRITICAL  tests/components/cast_volume_tracker/test_cast_volume_tracker.py::test_all_my_speakers
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
@@ -1747,3 +1767,24 @@ async def test_all_my_speakers(hass):
 
     for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    # Turn off the media player
+    await hass.services.async_call(
+        MP_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: mp_entity_id}, blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert sanity_check(hass)
+
+    assert check_attr(hass, cvt_entity_id, False, ATTR_CAST_IS_ON)
+
+    cvt_member_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
+    cvt_member_attrs[ATTR_CAST_IS_ON] = False
+    cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
+    for cvt in cast_volume_trackers:
+        assert check_cvt(hass, cvt, cvt_member_attrs)
+
+    cvt_kh_attrs[ATTR_VALUE] = 60.0
+    cvt_kh_attrs[ATTR_CAST_IS_ON] = False
+    cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
+    cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.6
+    assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)

@@ -573,6 +573,8 @@ class CastVolumeTracker(RestoreEntity):
     def cvt_volume_set(entity_id, volume_level=None):
         """Return arguments to be passed to the `cast_volume_tracker.volume_set` service."""
         if isinstance(entity_id, str):
+            if volume_level is None:
+                return [[DOMAIN, SERVICE_VOLUME_SET, {ATTR_ENTITY_ID: entity_id}]]
             return [
                 [
                     DOMAIN,
@@ -581,6 +583,18 @@ class CastVolumeTracker(RestoreEntity):
                 ]
             ]
 
+        if volume_level is None:
+            return [
+                [
+                    DOMAIN,
+                    SERVICE_VOLUME_SET,
+                    {
+                        ATTR_ENTITY_ID: [
+                            ENTITY_ID_FORMAT.format(cvt.object_id) for cvt in entity_id
+                        ],
+                    },
+                ]
+            ]
         return [
             [
                 DOMAIN,
@@ -655,6 +669,7 @@ class CastVolumeTracker(RestoreEntity):
 
         # On -> Off
         if self.cast_is_on_prev and not self.cast_is_on:
+            _LOGGER.critical("_update_on_to_off()")
             return self._update_on_to_off()
 
         # On -> On and volume changed
@@ -927,11 +942,13 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             if not old_equilibrium:
                 return []
 
-        cvt_changed = any(
-            (round(member.value, 3) != round(self.value, 3) for member in self.members)
-        )
         if not self.is_volume_muted:
-            if self.equilibrium or cvt_changed or old_equilibrium:
+            # CASE 1
+            #   The volume is at equilibrium -> update the value.
+            #
+            #   EXAMPLE: the `cast_volume_tracker.volume_set` service was used
+            #   to change the volume for the group
+            if self.equilibrium:
                 self.value_prev = self.value
                 self.value = (
                     100.0
@@ -940,11 +957,45 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                     / sum([not member.is_volume_muted for member in self.members])
                 )
 
-                if (
-                    old_equilibrium
-                    and sum((not member.is_volume_muted for member in self.members)) > 1
-                ):
-                    self.mp_volume_level = self.mp_volume_level_prev
+            # CASE 2
+            #   The volume is not at equilibrium because the volume was changed
+            #   for a member `CastVolumeTrackerIndividual` -> update the value.
+            #
+            #   EXAMPLE: the `cast_volume_tracker.volume_set` service was used
+            #   to change the volume for a member
+            elif any(
+                (
+                    round(member.value, 3) != round(self.value, 3)
+                    for member in self.members
+                )
+            ):
+                self.value_prev = self.value
+                self.value = (
+                    100.0
+                    * self.mp_volume_level
+                    * len(self.members)
+                    / sum([not member.is_volume_muted for member in self.members])
+                )
+
+            # CASE 3
+            #   TODO
+            elif old_equilibrium:
+                self.value_prev = self.value
+                self.value = (
+                    100.0
+                    * self.mp_volume_level
+                    * len(self.members)
+                    / sum([not member.is_volume_muted for member in self.members])
+                )
+
+            else:
+                return []
+
+            if (
+                old_equilibrium
+                and sum((not member.is_volume_muted for member in self.members)) > 1
+            ):
+                self.mp_volume_level = self.mp_volume_level_prev
 
         # 1) Set the cast volume trackers
         return self.cvt_volume_set(self.members, 0.01 * self.value) * 2
