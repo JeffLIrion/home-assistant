@@ -978,7 +978,11 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                 )
 
             # CASE 3
-            #   TODO
+            #   The volume was at equilibrium but now it is not because the
+            #   volume for one or more speakers changed -> update the value.
+            #
+            #   EXAMPLE: the `media_player.volume_set` service was used to
+            #   change the volume for a member
             elif old_equilibrium:
                 self.value_prev = self.value
                 self.value = (
@@ -988,9 +992,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                     / sum([not member.is_volume_muted for member in self.members])
                 )
 
-            else:
-                return []
-
+            # Prevent an infinite loop
             if (
                 old_equilibrium
                 and sum((not member.is_volume_muted for member in self.members)) > 1
