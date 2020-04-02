@@ -949,6 +949,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             #   EXAMPLE: the `cast_volume_tracker.volume_set` service was used
             #   to change the volume for the group
             if self.equilibrium:
+                _LOGGER.critical("CASE 1")
                 self.value_prev = self.value
                 self.value = (
                     100.0
@@ -969,6 +970,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                     for member in self.members
                 )
             ):
+                _LOGGER.critical("CASE 2")
                 self.value_prev = self.value
                 self.value = (
                     100.0
@@ -984,6 +986,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             #   EXAMPLE: the `media_player.volume_set` service was used to
             #   change the volume for a member
             elif old_equilibrium:
+                _LOGGER.critical("CASE 3")
                 self.value_prev = self.value
                 self.value = (
                     100.0

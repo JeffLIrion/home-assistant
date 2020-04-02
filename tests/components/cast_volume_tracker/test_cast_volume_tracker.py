@@ -1404,7 +1404,7 @@ async def test_kitchen_speakers(hass):
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
 
 
-async def _test_all_my_speakers(hass):
+async def test_all_my_speakers(hass):
     """Test the All My Speakers cast volume tracker."""
     # pytest --log-cli-level=CRITICAL  tests/components/cast_volume_tracker/test_cast_volume_tracker.py::test_all_my_speakers
     assert await async_setup_component(hass, MP_DOMAIN, CAST_MOCK_CONFIG)
@@ -1546,6 +1546,7 @@ async def _test_all_my_speakers(hass):
         assert check_cvt(hass, cvt, cvt_member_attrs)
 
     # Un-mute the volume
+    _LOGGER.warning("Un-mute the volume")
     await hass.services.async_call(
         CVT_DOMAIN,
         SERVICE_VOLUME_MUTE,
@@ -1564,6 +1565,7 @@ async def _test_all_my_speakers(hass):
     cvt_member_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.10
     for cvt in cast_volume_trackers_all:
         assert check_cvt(hass, cvt, cvt_member_attrs)
+    return
 
     # While the speakers are on and not muted, set the volume to 15
     await hass.services.async_call(
