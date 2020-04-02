@@ -57,6 +57,7 @@ CAST_VOLUME_TRACKER_CONFIG = {CVT_DOMAIN: load_yaml(PWD + "/cast_volume_trackers
 # =========================================================================== #
 def sanity_check(hass):
     """Check that the cast volume trackers are tracking the `cast_mock` media players."""
+    ret = True
     for media_player in MEDIA_PLAYERS:
         cvt = "{}.{}".format(CVT_DOMAIN, media_player)
         mp = "{}.{}".format(MP_DOMAIN, media_player)
@@ -73,7 +74,7 @@ def sanity_check(hass):
                 cvt,
                 "on" if cvt_is_on else "off",
             )
-            return False
+            ret = False
 
         if mp_is_on:
             mp_volume = mp_state_obj.attributes[ATTR_MEDIA_VOLUME_LEVEL]
@@ -89,7 +90,7 @@ def sanity_check(hass):
                     cvt,
                     cvt_volume,
                 )
-                return False
+                ret = False
             if abs(mp_volume - expected_volume) > 1e-5:
                 _LOGGER.critical(
                     "%s volume is %.3f, %s expected_volume is %.3f",
@@ -98,9 +99,9 @@ def sanity_check(hass):
                     cvt,
                     expected_volume,
                 )
-                return False
+                ret = False
 
-    return True
+    return ret
 
 
 def unused_check_volume_levels(hass, volume_dict):
@@ -1105,7 +1106,7 @@ async def test_kitchen_speakers(hass):
     cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = True
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.0
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
-    return
+
     # Un-mute the volume
     await hass.services.async_call(
         CVT_DOMAIN,
