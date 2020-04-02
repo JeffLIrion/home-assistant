@@ -1352,7 +1352,7 @@ async def test_kitchen_speakers(hass):
     cvt_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.04
     cvt_attrs[ATTR_MEDIA_VOLUME_LEVEL] = 0.04
-    # assert check_cvt(hass, cvt_entity_id, cvt_attrs)
+    assert check_cvt(hass, cvt_entity_id, cvt_attrs)
 
     cvt_cs_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_cs_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
@@ -1384,5 +1384,3 @@ async def test_kitchen_speakers(hass):
     cvt_kh_attrs[ATTR_MEDIA_VOLUME_MUTED] = False
     cvt_kh_attrs[ATTR_EXPECTED_VOLUME_LEVEL] = 0.08
     assert check_cvt(hass, cvt_kitchen_home, cvt_kh_attrs)
-
-    # assert False

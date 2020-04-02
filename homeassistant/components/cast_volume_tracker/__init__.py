@@ -939,8 +939,12 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
                     * len(self.members)
                     / sum([not member.is_volume_muted for member in self.members])
                 )
-        if old_equilibrium:
-            self.mp_volume_level = self.mp_volume_level_prev
+
+                if (
+                    old_equilibrium
+                    and sum((not member.is_volume_muted for member in self.members)) > 1
+                ):
+                    self.mp_volume_level = self.mp_volume_level_prev
 
         # 1) Set the cast volume trackers
         return self.cvt_volume_set(self.members, 0.01 * self.value) * 2
