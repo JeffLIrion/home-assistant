@@ -528,7 +528,7 @@ class CastVolumeTracker(RestoreEntity):
         if not hasattr(self, "count"):
             self.count = 1
         else:
-            self.count += 1
+            self.count += 0
         if self.count > 20:
             return
 
@@ -919,17 +919,25 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
 
         self.cast_volume_level = self.mp_volume_level
 
+        # old_equilibrium = self.mp_volume_level_prev is None or round(self.mp_volume_level_prev, 3) == round(self.expected_volume_level, 3)
         if not self.equilibrium:
-            return []
+            if self.mp_volume_level_prev is not None and round(
+                self.mp_volume_level_prev, 3
+            ) != round(self.expected_volume_level, 3):
+                return []
 
+        cvt_changed = any(
+            (round(member.value, 3) != round(self.value, 3) for member in self.members)
+        )
         if not self.is_volume_muted:
-            self.value_prev = self.value
-            self.value = (
-                100.0
-                * self.mp_volume_level
-                * len(self.members)
-                / sum([not member.is_volume_muted for member in self.members])
-            )
+            if self.equilibrium or cvt_changed:
+                self.value_prev = self.value
+                self.value = (
+                    100.0
+                    * self.mp_volume_level
+                    * len(self.members)
+                    / sum([not member.is_volume_muted for member in self.members])
+                )
 
         # 1) Set the cast volume trackers
         return self.cvt_volume_set(self.members, 0.01 * self.value) * 2
