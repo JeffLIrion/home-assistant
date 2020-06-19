@@ -38,9 +38,8 @@ from homeassistant.const import (
 )
 from homeassistant.setup import async_setup_component
 
-from . import patchers
-
 from tests.async_mock import patch
+from tests.components.androidtv import patchers
 
 # Android TV device with Python ADB implementation
 CONFIG_ANDROIDTV_PYTHON_ADB = {
@@ -143,20 +142,9 @@ async def _test_reconnect(hass, caplog, config):
     with patchers.patch_connect(True)[patch_key], patchers.patch_shell("1")[
         patch_key
     ], patchers.PATCH_ANDROIDTV_OPEN, patchers.PATCH_SIGNER:
-        # Update 1 will reconnect
         await hass.helpers.entity_component.async_update_entity(entity_id)
 
-        # If using an ADB server, the state will get updated; otherwise, the
-        # state will be the last known state
-        state = hass.states.get(entity_id)
-        if patch_key == "server":
-            assert state.state == STATE_STANDBY
-        else:
-            assert state.state == STATE_OFF
-
-        # Update 2 will update the state, regardless of which ADB connection
-        # method is used
-        await hass.helpers.entity_component.async_update_entity(entity_id)
+        # await hass.helpers.entity_component.async_update_entity(entity_id)
         state = hass.states.get(entity_id)
         assert state is not None
         assert state.state == STATE_STANDBY
@@ -748,7 +736,7 @@ async def test_adb_command(hass):
         await hass.async_block_till_done()
 
     with patch(
-        "androidtv.basetv.BaseTV.adb_shell", return_value=response
+        "androidtv.basetv.basetv_async.BaseTVAsync.adb_shell", return_value=response
     ) as patch_shell:
         await hass.services.async_call(
             ANDROIDTV_DOMAIN,
@@ -776,7 +764,7 @@ async def test_adb_command_unicode_decode_error(hass):
         await hass.async_block_till_done()
 
     with patch(
-        "androidtv.basetv.BaseTV.adb_shell",
+        "androidtv.basetv.basetv_async.BaseTVAsync.adb_shell",
         side_effect=UnicodeDecodeError("utf-8", response, 0, len(response), "TEST"),
     ):
         await hass.services.async_call(
@@ -806,7 +794,7 @@ async def test_adb_command_key(hass):
         await hass.async_block_till_done()
 
     with patch(
-        "androidtv.basetv.BaseTV.adb_shell", return_value=response
+        "androidtv.basetv.basetv_async.BaseTVAsync.adb_shell", return_value=response
     ) as patch_shell:
         await hass.services.async_call(
             ANDROIDTV_DOMAIN,
@@ -835,7 +823,8 @@ async def test_adb_command_get_properties(hass):
         await hass.async_block_till_done()
 
     with patch(
-        "androidtv.androidtv.AndroidTV.get_properties_dict", return_value=response
+        "androidtv.androidtv.androidtv_async.AndroidTVAsync.get_properties_dict",
+        return_value=response,
     ) as patch_get_props:
         await hass.services.async_call(
             ANDROIDTV_DOMAIN,
@@ -867,7 +856,8 @@ async def test_update_lock_not_acquired(hass):
         assert state.state == STATE_OFF
 
     with patch(
-        "androidtv.androidtv.AndroidTV.update", side_effect=LockNotAcquiredException
+        "androidtv.androidtv.androidtv_async.AndroidTVAsync.update",
+        side_effect=LockNotAcquiredException,
     ):
         with patchers.patch_shell("1")[patch_key]:
             await hass.helpers.entity_component.async_update_entity(entity_id)
@@ -895,7 +885,7 @@ async def test_download(hass):
         await hass.async_block_till_done()
 
     # Failed download because path is not whitelisted
-    with patch("androidtv.basetv.BaseTV.adb_pull") as patch_pull:
+    with patch("androidtv.basetv.basetv_async.BaseTVAsync.adb_pull") as patch_pull:
         await hass.services.async_call(
             ANDROIDTV_DOMAIN,
             SERVICE_DOWNLOAD,
@@ -909,9 +899,9 @@ async def test_download(hass):
         patch_pull.assert_not_called()
 
     # Successful download
-    with patch("androidtv.basetv.BaseTV.adb_pull") as patch_pull, patch.object(
-        hass.config, "is_allowed_path", return_value=True
-    ):
+    with patch(
+        "androidtv.basetv.basetv_async.BaseTVAsync.adb_pull"
+    ) as patch_pull, patch.object(hass.config, "is_allowed_path", return_value=True):
         await hass.services.async_call(
             ANDROIDTV_DOMAIN,
             SERVICE_DOWNLOAD,
@@ -938,7 +928,7 @@ async def test_upload(hass):
         await hass.async_block_till_done()
 
     # Failed upload because path is not whitelisted
-    with patch("androidtv.basetv.BaseTV.adb_push") as patch_push:
+    with patch("androidtv.basetv.basetv_async.BaseTVAsync.adb_push") as patch_push:
         await hass.services.async_call(
             ANDROIDTV_DOMAIN,
             SERVICE_UPLOAD,
@@ -952,9 +942,9 @@ async def test_upload(hass):
         patch_push.assert_not_called()
 
     # Successful upload
-    with patch("androidtv.basetv.BaseTV.adb_push") as patch_push, patch.object(
-        hass.config, "is_allowed_path", return_value=True
-    ):
+    with patch(
+        "androidtv.basetv.basetv_async.BaseTVAsync.adb_push"
+    ) as patch_push, patch.object(hass.config, "is_allowed_path", return_value=True):
         await hass.services.async_call(
             ANDROIDTV_DOMAIN,
             SERVICE_UPLOAD,
@@ -979,7 +969,7 @@ async def test_androidtv_volume_set(hass):
         await hass.async_block_till_done()
 
     with patch(
-        "androidtv.basetv.BaseTV.set_volume_level", return_value=0.5
+        "androidtv.basetv.basetv_async.BaseTVAsync.set_volume_level", return_value=0.5
     ) as patch_set_volume_level:
         await hass.services.async_call(
             DOMAIN,
@@ -1009,7 +999,9 @@ async def test_get_image(hass, hass_ws_client):
 
     client = await hass_ws_client(hass)
 
-    with patch("androidtv.basetv.BaseTV.adb_screencap", return_value=b"image"):
+    with patch(
+        "androidtv.basetv.basetv_async.BaseTVAsync.adb_screencap", return_value=b"image"
+    ):
         await client.send_json(
             {"id": 5, "type": "media_player_thumbnail", "entity_id": entity_id}
         )

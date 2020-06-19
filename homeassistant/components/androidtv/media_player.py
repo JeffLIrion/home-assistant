@@ -163,7 +163,7 @@ ANDROIDTV_STATES = {
 }
 
 
-async def setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Android TV / Fire TV platform."""
     hass.data.setdefault(ANDROIDTV_DOMAIN, {})
 
@@ -253,7 +253,7 @@ async def setup_platform(hass, config, add_entities, discovery_info=None):
         device = FireTVDevice(*device_args)
         device_name = config.get(CONF_NAME, "Fire TV")
 
-    add_entities([device])
+    async_add_entities([device])
     _LOGGER.debug("Setup %s at %s %s", device_name, address, adb_log)
     hass.data[ANDROIDTV_DOMAIN][address] = device
 
@@ -502,22 +502,22 @@ class ADBDevice(MediaPlayerEntity):
         return None, None
 
     @adb_decorator()
-    async def media_play(self):
+    async def async_media_play(self):
         """Send play command."""
         await self.aftv.media_play()
 
     @adb_decorator()
-    async def media_pause(self):
+    async def async_media_pause(self):
         """Send pause command."""
         await self.aftv.media_pause()
 
     @adb_decorator()
-    async def media_play_pause(self):
+    async def async_media_play_pause(self):
         """Send play/pause command."""
         await self.aftv.media_play_pause()
 
     @adb_decorator()
-    async def turn_on(self):
+    async def async_turn_on(self):
         """Turn on the device."""
         if self.turn_on_command:
             await self.aftv.adb_shell(self.turn_on_command)
@@ -525,7 +525,7 @@ class ADBDevice(MediaPlayerEntity):
             await self.aftv.turn_on()
 
     @adb_decorator()
-    async def turn_off(self):
+    async def async_turn_off(self):
         """Turn off the device."""
         if self.turn_off_command:
             await self.aftv.adb_shell(self.turn_off_command)
@@ -533,17 +533,17 @@ class ADBDevice(MediaPlayerEntity):
             await self.aftv.turn_off()
 
     @adb_decorator()
-    async def media_previous_track(self):
+    async def async_media_previous_track(self):
         """Send previous track command (results in rewind)."""
         await self.aftv.media_previous_track()
 
     @adb_decorator()
-    async def media_next_track(self):
+    async def async_media_next_track(self):
         """Send next track command (results in fast-forward)."""
         await self.aftv.media_next_track()
 
     @adb_decorator()
-    async def select_source(self, source):
+    async def async_select_source(self, source):
         """Select input source.
 
         If the source starts with a '!', then it will close the app instead of
@@ -628,7 +628,7 @@ class AndroidTVDevice(ADBDevice):
         self._volume_level = None
 
     @adb_decorator(override_available=True)
-    async def update(self):
+    async def async_update(self):
         """Update the device state and, if necessary, re-connect."""
         # Check if device is disconnected.
         if not self._available:
@@ -680,27 +680,27 @@ class AndroidTVDevice(ADBDevice):
         return self._volume_level
 
     @adb_decorator()
-    async def media_stop(self):
+    async def async_media_stop(self):
         """Send stop command."""
         await self.aftv.media_stop()
 
     @adb_decorator()
-    async def mute_volume(self, mute):
+    async def async_mute_volume(self, mute):
         """Mute the volume."""
         await self.aftv.mute_volume()
 
     @adb_decorator()
-    async def set_volume_level(self, volume):
+    async def async_set_volume_level(self, volume):
         """Set the volume level."""
         await self.aftv.set_volume_level(volume)
 
     @adb_decorator()
-    async def volume_down(self):
+    async def async_volume_down(self):
         """Send volume down command."""
         self._volume_level = await self.aftv.volume_down(self._volume_level)
 
     @adb_decorator()
-    async def volume_up(self):
+    async def async_volume_up(self):
         """Send volume up command."""
         self._volume_level = await self.aftv.volume_up(self._volume_level)
 
@@ -709,7 +709,7 @@ class FireTVDevice(ADBDevice):
     """Representation of a Fire TV device."""
 
     @adb_decorator(override_available=True)
-    async def update(self):
+    async def async_update(self):
         """Update the device state and, if necessary, re-connect."""
         # Check if device is disconnected.
         if not self._available:
@@ -746,6 +746,6 @@ class FireTVDevice(ADBDevice):
         return SUPPORT_FIRETV
 
     @adb_decorator()
-    async def media_stop(self):
+    async def async_media_stop(self):
         """Send stop (back) command."""
         await self.aftv.back()
