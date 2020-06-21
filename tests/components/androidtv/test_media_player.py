@@ -13,15 +13,31 @@ from homeassistant.components.androidtv.media_player import (
     CONF_ADBKEY,
     CONF_APPS,
     CONF_EXCLUDE_UNNAMED_APPS,
+    CONF_TURN_OFF_COMMAND,
+    CONF_TURN_ON_COMMAND,
     KEYS,
     SERVICE_ADB_COMMAND,
     SERVICE_DOWNLOAD,
     SERVICE_UPLOAD,
 )
-from homeassistant.components.media_player.const import (
+from homeassistant.components.media_player import (
     ATTR_INPUT_SOURCE,
+    ATTR_MEDIA_VOLUME_LEVEL,
+    ATTR_MEDIA_VOLUME_MUTED,
     DOMAIN,
+    SERVICE_MEDIA_NEXT_TRACK,
+    SERVICE_MEDIA_PAUSE,
+    SERVICE_MEDIA_PLAY,
+    SERVICE_MEDIA_PLAY_PAUSE,
+    SERVICE_MEDIA_PREVIOUS_TRACK,
+    SERVICE_MEDIA_STOP,
     SERVICE_SELECT_SOURCE,
+    SERVICE_TURN_OFF,
+    SERVICE_TURN_ON,
+    SERVICE_VOLUME_DOWN,
+    SERVICE_VOLUME_MUTE,
+    SERVICE_VOLUME_SET,
+    SERVICE_VOLUME_UP,
 )
 from homeassistant.components.websocket_api.const import TYPE_RESULT
 from homeassistant.const import (
@@ -30,7 +46,6 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_NAME,
     CONF_PLATFORM,
-    SERVICE_VOLUME_SET,
     STATE_OFF,
     STATE_PLAYING,
     STATE_STANDBY,
@@ -974,7 +989,7 @@ async def test_androidtv_volume_set(hass):
         await hass.services.async_call(
             DOMAIN,
             SERVICE_VOLUME_SET,
-            {ATTR_ENTITY_ID: entity_id, "volume_level": 0.5},
+            {ATTR_ENTITY_ID: entity_id, ATTR_MEDIA_VOLUME_LEVEL: 0.5},
             blocking=True,
         )
 
@@ -1013,3 +1028,100 @@ async def test_get_image(hass, hass_ws_client):
     assert msg["success"]
     assert msg["result"]["content_type"] == "image/png"
     assert msg["result"]["content"] == base64.b64encode(b"image").decode("utf-8")
+
+
+async def _test_service(
+    hass,
+    entity_id,
+    ha_service_name,
+    androidtv_method,
+    additional_service_data=None,
+    return_value=None,
+):
+    """Test generic Android TV media player entity service."""
+    service_data = {ATTR_ENTITY_ID: entity_id}
+    if additional_service_data:
+        service_data.update(additional_service_data)
+
+    androidtv_patch = (
+        "androidtv.androidtv_async.AndroidTVAsync"
+        if "android" in entity_id
+        else "firetv.firetv_async.FireTVAsync"
+    )
+    with patch(
+        f"androidtv.{androidtv_patch}.{androidtv_method}", return_value=return_value
+    ) as service_call:
+        await hass.services.async_call(
+            DOMAIN, ha_service_name, service_data=service_data, blocking=True,
+        )
+        assert service_call.called
+
+        # if args or kwargs:
+        #     assert service_call.call_args == call(*args, **kwargs)
+
+
+async def test_services_androidtv(hass):
+    """Test media player services for an Android TV device."""
+    patch_key, entity_id = _setup(CONFIG_ANDROIDTV_ADB_SERVER)
+
+    with patchers.PATCH_ADB_DEVICE_TCP, patchers.patch_connect(True)[patch_key]:
+        with patchers.patch_shell("")[patch_key]:
+            assert await async_setup_component(
+                hass, DOMAIN, CONFIG_ANDROIDTV_ADB_SERVER
+            )
+            await hass.async_block_till_done()
+
+        with patchers.patch_shell("1")[patch_key]:
+            await _test_service(
+                hass, entity_id, SERVICE_MEDIA_NEXT_TRACK, "media_next_track"
+            )
+            await _test_service(hass, entity_id, SERVICE_MEDIA_PAUSE, "media_pause")
+            await _test_service(hass, entity_id, SERVICE_MEDIA_PLAY, "media_play")
+            await _test_service(
+                hass, entity_id, SERVICE_MEDIA_PLAY_PAUSE, "media_play_pause"
+            )
+            await _test_service(
+                hass, entity_id, SERVICE_MEDIA_PREVIOUS_TRACK, "media_previous_track"
+            )
+            await _test_service(hass, entity_id, SERVICE_MEDIA_STOP, "media_stop")
+            await _test_service(hass, entity_id, SERVICE_TURN_OFF, "turn_off")
+            await _test_service(hass, entity_id, SERVICE_TURN_ON, "turn_on")
+            await _test_service(
+                hass, entity_id, SERVICE_VOLUME_DOWN, "volume_down", return_value=0.1
+            )
+            await _test_service(
+                hass,
+                entity_id,
+                SERVICE_VOLUME_MUTE,
+                "mute_volume",
+                {ATTR_MEDIA_VOLUME_MUTED: False},
+            )
+            await _test_service(
+                hass,
+                entity_id,
+                SERVICE_VOLUME_SET,
+                "set_volume_level",
+                {ATTR_MEDIA_VOLUME_LEVEL: 0.5},
+                0.5,
+            )
+            await _test_service(
+                hass, entity_id, SERVICE_VOLUME_UP, "volume_up", return_value=0.2
+            )
+
+
+async def test_services_firetv(hass):
+    """Test media player services for a Fire TV device."""
+    patch_key, entity_id = _setup(CONFIG_FIRETV_ADB_SERVER)
+    config = CONFIG_FIRETV_ADB_SERVER.copy()
+    config[DOMAIN][CONF_TURN_OFF_COMMAND] = "test off"
+    config[DOMAIN][CONF_TURN_ON_COMMAND] = "test on"
+
+    with patchers.PATCH_ADB_DEVICE_TCP, patchers.patch_connect(True)[patch_key]:
+        with patchers.patch_shell("")[patch_key]:
+            assert await async_setup_component(hass, DOMAIN, config)
+            await hass.async_block_till_done()
+
+        with patchers.patch_shell("1")[patch_key]:
+            await _test_service(hass, entity_id, SERVICE_MEDIA_STOP, "back")
+            await _test_service(hass, entity_id, SERVICE_TURN_OFF, "adb_shell")
+            await _test_service(hass, entity_id, SERVICE_TURN_ON, "adb_shell")
