@@ -6,9 +6,9 @@ KEY_PYTHON = "python"
 KEY_SERVER = "server"
 
 ADB_DEVICE_TCP_ASYNC_FAKE = "AdbDeviceTcpAsyncFake"
-CLIENT_FAKE_SUCCESS = "ClientFakeSuccess"
-CLIENT_FAKE_FAIL = "ClientFakeFail"
-DEVICE_FAKE = "DeviceFake"
+# CLIENT_ASYNC_FAKE_SUCCESS = "ClientAsyncFakeSuccess"
+# CLIENT_ASYNC_FAKE_FAIL = "ClientAsyncFakeFail"
+DEVICE_ASYNC_FAKE = "DeviceAsyncFake"
 
 
 class AdbDeviceTcpAsyncFake:
@@ -37,62 +37,50 @@ class AdbDeviceTcpAsyncFake:
         return None
 
 
-class ClientFakeSuccess:
+class ClientAsyncFakeSuccess:
     """A fake of the `ppadb.client.Client` class when the connection and shell commands succeed."""
 
     def __init__(self, host="127.0.0.1", port=5037):
-        """Initialize a `ClientFakeSuccess` instance."""
+        """Initialize a `ClientAsyncFakeSuccess` instance."""
         self._devices = []
 
-    def devices(self):
-        """Get a list of the connected devices."""
-        return self._devices
-
-    def device(self, serial):
-        """Mock the `Client.device` method when the device is connected via ADB."""
-        device = DeviceFake(serial)
+    async def device(self, serial):
+        """Mock the `ClientAsync.device` method when the device is connected via ADB."""
+        device = DeviceAsyncFake(serial)
         self._devices.append(device)
         return device
 
 
-class ClientFakeFail:
+class ClientAsyncFakeFail:
     """A fake of the `ppadb.client.Client` class when the connection and shell commands fail."""
 
     def __init__(self, host="127.0.0.1", port=5037):
-        """Initialize a `ClientFakeFail` instance."""
+        """Initialize a `ClientAsyncFakeFail` instance."""
         self._devices = []
 
-    def devices(self):
-        """Get a list of the connected devices."""
-        return self._devices
-
-    def device(self, serial):
-        """Mock the `Client.device` method when the device is not connected via ADB."""
+    async def device(self, serial):
+        """Mock the `ClientAsync.device` method when the device is not connected via ADB."""
         self._devices = []
 
 
-class DeviceFake:
+class DeviceAsyncFake:
     """A fake of the `ppadb.device.Device` class."""
 
     def __init__(self, host):
-        """Initialize a `DeviceFake` instance."""
+        """Initialize a `DeviceAsyncFake` instance."""
         self.host = host
 
-    def get_serial_no(self):
-        """Get the serial number for the device (IP:PORT)."""
-        return self.host
-
-    def push(self, *args, **kwargs):
+    async def push(self, *args, **kwargs):
         """Push a file to the device."""
 
-    def pull(self, *args, **kwargs):
+    async def pull(self, *args, **kwargs):
         """Pull a file from the device."""
 
-    def shell(self, cmd):
+    async def shell(self, cmd):
         """Send an ADB shell command."""
         raise NotImplementedError
 
-    def screencap(self):
+    async def screencap(self):
         """Take a screencap."""
         raise NotImplementedError
 
@@ -115,7 +103,8 @@ def patch_connect(success):
                 connect_success_python,
             ),
             KEY_SERVER: patch(
-                "androidtv.adb_manager.adb_manager_async.Client", ClientFakeSuccess
+                "androidtv.adb_manager.adb_manager_async.ClientAsync",
+                ClientAsyncFakeSuccess,
             ),
         }
     return {
@@ -123,21 +112,16 @@ def patch_connect(success):
             f"{__name__}.{ADB_DEVICE_TCP_ASYNC_FAKE}.connect", connect_fail_python
         ),
         KEY_SERVER: patch(
-            "androidtv.adb_manager.adb_manager_async.Client", ClientFakeFail
+            "androidtv.adb_manager.adb_manager_async.ClientAsync", ClientAsyncFakeFail
         ),
     }
 
 
 def patch_shell(response=None, error=False):
-    """Mock the `AdbDeviceTcpAsyncFake.shell` and `DeviceFake.shell` methods."""
+    """Mock the `AdbDeviceTcpAsyncFake.shell` and `DeviceAsyncFake.shell` methods."""
 
     async def shell_success(self, cmd, *args, **kwargs):
-        """Mock the `AdbDeviceTcpAsyncFake.shell` and `DeviceFake.shell` methods when they are successful."""
-        self.shell_cmd = cmd
-        return response
-
-    def delete_shell_success(self, cmd, *args, **kwargs):
-        """Mock the `AdbDeviceTcpAsyncFake.shell` and `DeviceFake.shell` methods when they are successful."""
+        """Mock the `AdbDeviceTcpAsyncFake.shell` and `DeviceAsyncFake.shell` methods when they are successful."""
         self.shell_cmd = cmd
         return response
 
@@ -146,8 +130,8 @@ def patch_shell(response=None, error=False):
         self.shell_cmd = cmd
         raise AttributeError
 
-    def shell_fail_server(self, cmd):
-        """Mock the `DeviceFake.shell` method when it fails."""
+    async def shell_fail_server(self, cmd):
+        """Mock the `DeviceAsyncFake.shell` method when it fails."""
         self.shell_cmd = cmd
         raise ConnectionResetError
 
@@ -156,13 +140,13 @@ def patch_shell(response=None, error=False):
             KEY_PYTHON: patch(
                 f"{__name__}.{ADB_DEVICE_TCP_ASYNC_FAKE}.shell", shell_success
             ),
-            KEY_SERVER: patch(f"{__name__}.{DEVICE_FAKE}.shell", delete_shell_success),
+            KEY_SERVER: patch(f"{__name__}.{DEVICE_ASYNC_FAKE}.shell", shell_success),
         }
     return {
         KEY_PYTHON: patch(
             f"{__name__}.{ADB_DEVICE_TCP_ASYNC_FAKE}.shell", shell_fail_python
         ),
-        KEY_SERVER: patch(f"{__name__}.{DEVICE_FAKE}.shell", shell_fail_server),
+        KEY_SERVER: patch(f"{__name__}.{DEVICE_ASYNC_FAKE}.shell", shell_fail_server),
     }
 
 
