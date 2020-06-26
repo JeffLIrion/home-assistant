@@ -46,7 +46,7 @@ from homeassistant.const import (
     STATE_STANDBY,
 )
 from homeassistant.exceptions import PlatformNotReady
-import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.storage import STORAGE_DIR
 
 ANDROIDTV_DOMAIN = "androidtv"
@@ -178,51 +178,29 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         _LOGGER.warning("Platform already setup on %s, skipping", address)
         return
 
+    adbkey = config.get(CONF_ADBKEY, hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
     if CONF_ADB_SERVER_IP not in config:
         # Use "adb_shell" (Python ADB implementation)
-        if CONF_ADBKEY not in config:
-            # Generate ADB key files (if they don't exist)
-            adbkey = hass.config.path(STORAGE_DIR, "androidtv_adbkey")
-            if not os.path.isfile(adbkey):
-                await hass.async_add_executor_job(keygen, adbkey)
+        if not os.path.isfile(adbkey):
+            # Generate ADB key files
+            await hass.async_add_executor_job(keygen, adbkey)
 
-            adb_log = f"using Python ADB implementation with adbkey='{adbkey}'"
-
-            aftv = await setup(
-                config[CONF_HOST],
-                config[CONF_PORT],
-                adbkey,
-                device_class=config[CONF_DEVICE_CLASS],
-                state_detection_rules=config[CONF_STATE_DETECTION_RULES],
-                auth_timeout_s=10.0,
-            )
-
-        else:
-            adb_log = (
-                f"using Python ADB implementation with adbkey='{config[CONF_ADBKEY]}'"
-            )
-
-            aftv = await setup(
-                config[CONF_HOST],
-                config[CONF_PORT],
-                config[CONF_ADBKEY],
-                device_class=config[CONF_DEVICE_CLASS],
-                state_detection_rules=config[CONF_STATE_DETECTION_RULES],
-                auth_timeout_s=10.0,
-            )
+        adb_log = f"using Python ADB implementation with adbkey='{adbkey}'"
 
     else:
         # Use "pure-python-adb" (communicate with ADB server)
         adb_log = f"using ADB server at {config[CONF_ADB_SERVER_IP]}:{config[CONF_ADB_SERVER_PORT]}"
 
-        aftv = await setup(
-            config[CONF_HOST],
-            config[CONF_PORT],
-            adb_server_ip=config[CONF_ADB_SERVER_IP],
-            adb_server_port=config[CONF_ADB_SERVER_PORT],
-            device_class=config[CONF_DEVICE_CLASS],
-            state_detection_rules=config[CONF_STATE_DETECTION_RULES],
-        )
+    aftv = await setup(
+        config[CONF_HOST],
+        config[CONF_PORT],
+        adbkey,
+        config.get(CONF_ADB_SERVER_IP, ""),
+        config[CONF_ADB_SERVER_PORT],
+        config[CONF_STATE_DETECTION_RULES],
+        config[CONF_DEVICE_CLASS],
+        10.0,
+    )
 
     if not aftv.available:
         # Determine the name that will be used for the device in the log
@@ -265,6 +243,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     if hass.services.has_service(ANDROIDTV_DOMAIN, SERVICE_ADB_COMMAND):
         return
 
+    platform = entity_platform.current_platform.get()
+
     async def service_adb_command(service):
         """Dispatch service calls to target entities."""
         cmd = service.data[ATTR_COMMAND]
@@ -294,31 +274,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         schema=SERVICE_ADB_COMMAND_SCHEMA,
     )
 
-    async def service_learn_sendevent(service):
-        """Translate a key press on a remote to ADB 'sendevent' commands."""
-        entity_id = service.data[ATTR_ENTITY_ID]
-        target_devices = [
-            dev
-            for dev in hass.data[ANDROIDTV_DOMAIN].values()
-            if dev.entity_id in entity_id
-        ]
-
-        for target_device in target_devices:
-            output = await target_device.learn_sendevent()
-
-            # log the output, if there is any
-            if output:
-                _LOGGER.info(
-                    "Output of 'learn_sendevent' service from '%s': %s",
-                    target_device.entity_id,
-                    output,
-                )
-
-    hass.services.async_register(
-        ANDROIDTV_DOMAIN,
-        SERVICE_LEARN_SENDEVENT,
-        service_learn_sendevent,
-        schema=SERVICE_LEARN_SENDEVENT_SCHEMA,
+    platform.async_register_entity_service(
+        SERVICE_LEARN_SENDEVENT, SERVICE_LEARN_SENDEVENT_SCHEMA, "learn_sendevent"
     )
 
     async def service_download(service):
@@ -622,8 +579,16 @@ class ADBDevice(MediaPlayerEntity):
     @adb_decorator()
     async def learn_sendevent(self):
         """Translate a key press on a remote to ADB 'sendevent' commands."""
-        self._adb_response = await self.aftv.learn_sendevent()
-        self.async_write_ha_state()
+        output = await self.aftv.learn_sendevent()
+        if output:
+            self._adb_response = output
+            self.async_write_ha_state()
+
+            msg = f"Output from service '{SERVICE_LEARN_SENDEVENT}' from {self.entity_id}: '{output}'"
+            self.hass.components.persistent_notification.async_create(
+                msg, title="Android TV",
+            )
+            _LOGGER.info("%s", msg)
 
     @adb_decorator()
     async def adb_pull(self, local_path, device_path):
