@@ -154,10 +154,13 @@ PATCH_ADB_DEVICE_TCP = patch(
     "androidtv.adb_manager.adb_manager_async.AdbDeviceTcpAsync", AdbDeviceTcpAsyncFake
 )
 PATCH_ANDROIDTV_OPEN = patch(
-    "androidtv.adb_manager.adb_manager_async.open", mock_open()
+    "homeassistant.components.androidtv.media_player.open", mock_open()
 )
 PATCH_KEYGEN = patch("homeassistant.components.androidtv.media_player.keygen")
-PATCH_SIGNER = patch("androidtv.adb_manager.adb_manager_async.PythonRSASigner")
+PATCH_SIGNER = patch(
+    "homeassistant.components.androidtv.media_player.PythonRSASigner",
+    return_value="signer for testing",
+)
 
 
 def isfile(filepath):

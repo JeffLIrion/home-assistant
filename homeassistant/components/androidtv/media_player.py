@@ -5,6 +5,7 @@ import logging
 import os
 
 from adb_shell.auth.keygen import keygen
+from adb_shell.auth.sign_pythonrsa import PythonRSASigner
 from adb_shell.exceptions import (
     AdbTimeoutError,
     InvalidChecksumError,
@@ -120,10 +121,6 @@ SERVICE_DOWNLOAD_SCHEMA = vol.Schema(
     }
 )
 
-SERVICE_LEARN_SENDEVENT_SCHEMA = vol.Schema(
-    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids}
-)
-
 SERVICE_UPLOAD_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
@@ -168,6 +165,29 @@ ANDROIDTV_STATES = {
 }
 
 
+def setup_androidtv(hass, config):
+    """Generate an ADB key (if needed) and load it."""
+    adbkey = config.get(CONF_ADBKEY, hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
+    if CONF_ADB_SERVER_IP not in config:
+        # Use "adb_shell" (Python ADB implementation)
+        if not os.path.isfile(adbkey):
+            # Generate ADB key files
+            keygen(adbkey)
+
+        # Load the ADB key
+        with open(adbkey) as f:
+            priv = f.read()
+        signer = PythonRSASigner("", priv)
+        adb_log = f"using Python ADB implementation with adbkey='{adbkey}'"
+
+    else:
+        # Use "pure-python-adb" (communicate with ADB server)
+        signer = None
+        adb_log = f"using ADB server at {config[CONF_ADB_SERVER_IP]}:{config[CONF_ADB_SERVER_PORT]}"
+
+    return adbkey, signer, adb_log
+
+
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Android TV / Fire TV platform."""
     hass.data.setdefault(ANDROIDTV_DOMAIN, {})
@@ -178,18 +198,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         _LOGGER.warning("Platform already setup on %s, skipping", address)
         return
 
-    adbkey = config.get(CONF_ADBKEY, hass.config.path(STORAGE_DIR, "androidtv_adbkey"))
-    if CONF_ADB_SERVER_IP not in config:
-        # Use "adb_shell" (Python ADB implementation)
-        if not os.path.isfile(adbkey):
-            # Generate ADB key files
-            await hass.async_add_executor_job(keygen, adbkey)
-
-        adb_log = f"using Python ADB implementation with adbkey='{adbkey}'"
-
-    else:
-        # Use "pure-python-adb" (communicate with ADB server)
-        adb_log = f"using ADB server at {config[CONF_ADB_SERVER_IP]}:{config[CONF_ADB_SERVER_PORT]}"
+    adbkey, signer, adb_log = await hass.async_add_executor_job(
+        setup_androidtv, hass, config
+    )
 
     aftv = await setup(
         config[CONF_HOST],
@@ -200,6 +211,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         config[CONF_STATE_DETECTION_RULES],
         config[CONF_DEVICE_CLASS],
         10.0,
+        signer,
     )
 
     if not aftv.available:
@@ -275,7 +287,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     )
 
     platform.async_register_entity_service(
-        SERVICE_LEARN_SENDEVENT, SERVICE_LEARN_SENDEVENT_SCHEMA, "learn_sendevent"
+        SERVICE_LEARN_SENDEVENT, {}, "learn_sendevent"
     )
 
     async def service_download(service):
