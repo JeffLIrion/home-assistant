@@ -1,0 +1,1 @@
+"""Tuya local control."""

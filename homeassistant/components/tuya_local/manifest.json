@@ -1,0 +1,10 @@
+{
+  "domain": "tuya_local",
+  "name": "Tuya",
+  "documentation": "https://www.home-assistant.io/integrations/tuya_local",
+  "requirements": [
+    "pytuya==7.0"
+  ],
+  "dependencies": [],
+  "codeowners": []
+}

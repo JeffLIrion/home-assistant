@@ -78,6 +78,7 @@ homeassistant/components/bsblan/* @liudger
 homeassistant/components/bt_smarthub/* @jxwolstenholme
 homeassistant/components/buienradar/* @mjj4791 @ties
 homeassistant/components/cast/* @emontnemery
+homeassistant/components/cast_volume_tracker/* @JeffLIrion
 homeassistant/components/cert_expiry/* @Cereal2nd @jjlawren
 homeassistant/components/circuit/* @braam
 homeassistant/components/cisco_ios/* @fbradyirl
@@ -517,6 +518,7 @@ homeassistant/components/wled/* @frenck
 homeassistant/components/wolflink/* @adamkrol93
 homeassistant/components/workday/* @fabaff
 homeassistant/components/worldclock/* @fabaff
+homeassistant/components/wyzesense/* @kevinvincent
 homeassistant/components/xbox/* @hunterjm
 homeassistant/components/xbox_live/* @MartinHjelmare
 homeassistant/components/xfinity/* @cisasteelersfan
