@@ -1,0 +1,11 @@
+{
+  "domain": "cast_mock",
+  "name": "Google Cast Mock",
+  "config_flow": false,
+  "documentation": "https://www.home-assistant.io/integrations/cast_mock",
+  "requirements": [],
+  "dependencies": [],
+  "after_dependencies": [],
+  "zeroconf": [],
+  "codeowners": []
+}

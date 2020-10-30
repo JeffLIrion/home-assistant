@@ -23,6 +23,23 @@ import homeassistant.helpers.service
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType, ServiceCallType
 
+from .template_number import (
+    CONF_ENTITY_ID,
+    CONF_ICON_TEMPLATE,
+    CONF_SET_VALUE_SCRIPT,
+    CONF_VALUE_CHANGED_SCRIPT,
+    CONF_VALUE_TEMPLATE,
+    EVENT_HOMEASSISTANT_START,
+    SERVICE_SET_VALUE_NO_SCRIPT,
+    TEMPLATE_NUMBER_CREATE_FIELDS,
+    TEMPLATE_NUMBER_UPDATE_FIELDS,
+    Optional,
+    Script,
+    TemplateError,
+    async_track_state_change_event,
+    cv_template_number,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "input_number"
@@ -46,7 +63,7 @@ SERVICE_INCREMENT = "increment"
 SERVICE_DECREMENT = "decrement"
 
 
-def _cv_input_number(cfg):
+def _cv_input_number0(cfg):
     """Configure validation helper for input number (voluptuous)."""
     minimum = cfg.get(CONF_MIN)
     maximum = cfg.get(CONF_MAX)
@@ -60,6 +77,15 @@ def _cv_input_number(cfg):
     return cfg
 
 
+# (Start) TemplateNumber
+def _cv_input_number(cfg):
+    """Configure validation helper for template number (voluptuous)."""
+    return cv_template_number(_cv_input_number0)(cfg)
+
+
+# (End) TemplateNumber
+
+
 CREATE_FIELDS = {
     vol.Required(CONF_NAME): vol.All(str, vol.Length(min=1)),
     vol.Required(CONF_MIN): vol.Coerce(float),
@@ -70,6 +96,7 @@ CREATE_FIELDS = {
     vol.Optional(CONF_UNIT_OF_MEASUREMENT): cv.string,
     vol.Optional(CONF_MODE, default=MODE_SLIDER): vol.In([MODE_BOX, MODE_SLIDER]),
 }
+CREATE_FIELDS.update(TEMPLATE_NUMBER_CREATE_FIELDS)  # TemplateNumber
 
 UPDATE_FIELDS = {
     vol.Optional(CONF_NAME): cv.string,
@@ -81,6 +108,7 @@ UPDATE_FIELDS = {
     vol.Optional(CONF_UNIT_OF_MEASUREMENT): cv.string,
     vol.Optional(CONF_MODE): vol.In([MODE_BOX, MODE_SLIDER]),
 }
+UPDATE_FIELDS.update(TEMPLATE_NUMBER_UPDATE_FIELDS)  # TemplateNumber
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -99,6 +127,13 @@ CONFIG_SCHEMA = vol.Schema(
                     vol.Optional(CONF_MODE, default=MODE_SLIDER): vol.In(
                         [MODE_BOX, MODE_SLIDER]
                     ),
+                    # (Start) TemplateNumber
+                    vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
+                    vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
+                    vol.Optional(CONF_ICON_TEMPLATE): cv.template,
+                    vol.Optional(CONF_SET_VALUE_SCRIPT): cv.SCRIPT_SCHEMA,
+                    vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
+                    # (End) TemplateNumber
                 },
                 _cv_input_number,
             )
@@ -120,7 +155,7 @@ async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
         logging.getLogger(f"{__name__}.yaml_collection"), id_manager
     )
     collection.attach_entity_component_collection(
-        component, yaml_collection, InputNumber.from_yaml
+        component, yaml_collection, lambda cfg: TemplateNumber.from_yaml(cfg, hass)
     )
 
     storage_collection = NumberStorageCollection(
@@ -129,7 +164,7 @@ async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
         id_manager,
     )
     collection.attach_entity_component_collection(
-        component, storage_collection, InputNumber
+        component, storage_collection, TemplateNumber
     )
 
     await yaml_collection.async_load(
@@ -171,6 +206,14 @@ async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
 
     component.async_register_entity_service(SERVICE_DECREMENT, {}, "async_decrement")
 
+    # (Start) Template Number
+    component.async_register_entity_service(
+        SERVICE_SET_VALUE_NO_SCRIPT,
+        {vol.Required(ATTR_VALUE): vol.Coerce(float)},
+        "async_set_value_no_script",
+    )
+    # (End) Template Number
+
     return True
 
 
@@ -198,7 +241,7 @@ class NumberStorageCollection(collection.StorageCollection):
 class InputNumber(RestoreEntity):
     """Representation of a slider."""
 
-    def __init__(self, config: typing.Dict):
+    def __init__(self, config: typing.Dict, hass: Optional[HomeAssistantType] = None):
         """Initialize an input number."""
         self._config = config
         self.editable = True
@@ -311,3 +354,148 @@ class InputNumber(RestoreEntity):
         self._current_value = min(self._current_value, self._maximum)
         self._current_value = max(self._current_value, self._minimum)
         self.async_write_ha_state()
+
+    # TemplateNumber
+    async def async_set_value_no_script(self, value):
+        """Set new value."""
+        await InputNumber.async_set_value(self, value)
+
+
+class TemplateNumber(InputNumber):
+    """Representation of a slider."""
+
+    def __init__(self, config: typing.Dict, hass: Optional[HomeAssistantType] = None):
+        """Initialize an input number."""
+        super().__init__(config)
+        self._entities = config.get(CONF_ENTITY_ID, set())
+        self.hass = hass if config.get(CONF_SET_VALUE_SCRIPT) is not None else None
+
+        # template
+        self._value_template = config.get(CONF_VALUE_TEMPLATE)
+        if self._value_template is not None:
+            self._value_template.hass = self.hass
+
+        # icon template
+        self._icon_template = config.get(CONF_ICON_TEMPLATE)
+        if self._icon_template is not None:
+            self._icon_template.hass = self.hass
+
+        # set_value_script
+        if config.get(CONF_SET_VALUE_SCRIPT) is not None:
+            self._set_value_script = Script(
+                hass,
+                config[CONF_SET_VALUE_SCRIPT],
+                config.get(CONF_NAME, "Template Number script"),
+                DOMAIN,
+            )
+        else:
+            self._set_value_script = None
+
+        # value_changed_script
+        if config.get(CONF_VALUE_CHANGED_SCRIPT) is not None:
+            self._value_changed_script = Script(
+                hass,
+                config[CONF_VALUE_CHANGED_SCRIPT],
+                config.get(CONF_NAME, "Template Number script"),
+                DOMAIN,
+            )
+        else:
+            self._value_changed_script = None
+
+    @classmethod
+    def from_yaml(  # pylint: disable=arguments-differ
+        cls, config: typing.Dict, hass: HomeAssistantType
+    ) -> "TemplateNumber":  # pylint: disable=arguments-differ
+        """Return entity instance initialized from yaml storage."""
+        template_num = cls(config, hass)
+        template_num.entity_id = f"{DOMAIN}.{config[CONF_ID]}"
+        template_num.editable = False
+        return template_num
+
+    async def async_added_to_hass(self):
+        """Run when entity about to be added to hass."""
+        # If this is a true `TemplateNumber`, then listen for state changes
+        if self._set_value_script:
+
+            @callback
+            def template_number_state_listener(entity):
+                """Handle target device state changes."""
+                self.async_schedule_update_ha_state(True)
+
+            @callback
+            def template_number_startup(event):
+                """Listen for state changes."""
+                if self._entities:
+                    async_track_state_change_event(
+                        self.hass, self._entities, template_number_state_listener
+                    )
+
+                self.async_schedule_update_ha_state(True)
+
+            self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_START, template_number_startup
+            )
+
+        # Call `InputNumber.async_added_to_hass`
+        await super().async_added_to_hass()
+
+    async def async_set_value(self, value):
+        """Set new value."""
+        num_value = float(value)
+
+        if num_value < self._minimum or num_value > self._maximum:
+            raise vol.Invalid(
+                f"Invalid value for {self.entity_id}: {value} (range {self._minimum} - {self._maximum})"
+            )
+
+        self._current_value = num_value
+
+        # This is the only part of the function that differs from `InputNumber.async_set_value()`
+        if not self._set_value_script:
+            self.async_write_ha_state()
+            return
+
+        await self._set_value_script.async_run(
+            {"value": self._current_value}, context=self._context
+        )
+        await self.async_update_ha_state()
+
+    async def async_increment(self):
+        """Increment value."""
+        await self.async_set_value(min(self._current_value + self._step, self._maximum))
+
+    async def async_decrement(self):
+        """Decrement value."""
+        await self.async_set_value(max(self._current_value - self._step, self._minimum))
+
+    async def async_update(self):
+        """Update the state from the template."""
+        if self._value_template:
+            try:
+                value = self._value_template.async_render()
+                if value not in ["None", "unknown"] and self._current_value != float(
+                    value
+                ):
+                    self._current_value = float(value)
+
+                    if self._value_changed_script:
+                        await self._value_changed_script.async_run(
+                            {"value": self._current_value}, context=self._context
+                        )
+
+            except TemplateError as ex:
+                _LOGGER.error(ex)
+
+        if self._icon_template:
+            try:
+                self._config[CONF_ICON] = self._icon_template.async_render()
+            except TemplateError as ex:
+                if ex.args and ex.args[0].startswith(
+                    "UndefinedError: 'None' has no attribute"
+                ):
+                    # Common during HA startup - so just a warning
+                    _LOGGER.warning(
+                        "Could not render icon template for %s, "
+                        "the state is unknown.",
+                        self.name,
+                    )
