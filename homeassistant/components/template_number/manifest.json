@@ -1,0 +1,7 @@
+{
+    "domain": "template_number",
+    "name": "Template Number",
+    "documentation": "https://www.home-assistant.io/integrations/template_number",
+    "codeowners": ["@home-assistant/core"],
+    "quality_scale": "internal"
+  }

@@ -1,0 +1,35 @@
+- platform: template_number
+  name: tracked_value
+  initial: 50
+  min: 0
+  max: 100
+
+- platform: template_number
+  name: "set_value_script"
+  initial: 100
+  min: 0
+  max: 200
+
+- platform: template_number
+  name: "value_changed_script"
+  initial: 150
+  min: 0
+  max: 300
+
+- platform: template_number
+  name: template_number
+  initial: 50
+  min: 0
+  max: 100
+  entity_id: "number.tracked_value"
+  value_template: "{{ states('number.tracked_value') | round(0) }}"
+  set_value_script:
+    - service: number.set_value
+      data_template:
+        entity_id: number.set_value_script
+        value: "{{ value | multiply(2) }}"
+  value_changed_script:
+    - service: number.set_value
+      data_template:
+        entity_id: number.value_changed_script
+        value: "{{ value | multiply(3) }}"
