@@ -92,6 +92,7 @@ async def test_template_number(hass):
         NUMBER_DOMAIN,
         TEMPLATE_NUMBERS_CONFIG,
     )
+    await hass.async_block_till_done()
     await hass.async_start()
     await hass.async_block_till_done()
 
@@ -126,8 +127,8 @@ async def test_template_number(hass):
     # - The `value_changed_script` sequence should be called
     hass.states.async_set("number.tracked_value", 25)
     await hass.async_block_till_done()
-    # check_states(hass, 25, 20, 75, 25)
-    check_states(hass, 25, 20, 150, 10)
+    check_states(hass, 25, 20, 75, 25)
+    # check_states(hass, 25, 20, 150, 10)
 
     state = hass.states.get("input_number.input_number")
     assert state is not None
@@ -138,4 +139,4 @@ async def test_template_number(hass):
 
     state = hass.states.get("number.input_number_tracker")
     assert state is not None
-    # assert float(state.state) == 25.0
+    assert float(state.state) == 25.0

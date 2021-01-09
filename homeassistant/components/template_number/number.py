@@ -86,7 +86,7 @@ class TemplateNumberEntity(NumberEntity):
         self._unit_of_measurement = config.get(CONF_UNIT_OF_MEASUREMENT)
 
         self._entities = config.get(CONF_ENTITY_ID, set())
-        self.hass = hass if config.get(CONF_SET_VALUE_SCRIPT) else None
+        self.hass = hass  # if config.get(CONF_SET_VALUE_SCRIPT) else None
 
         # template
         self._value_template = config.get(CONF_VALUE_TEMPLATE)
@@ -169,7 +169,7 @@ class TemplateNumberEntity(NumberEntity):
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass."""
         # If this is a true `TemplateNumber`, then listen for state changes
-        if self._set_value_script:
+        if self._entities:
 
             @callback
             def template_number_state_listener(entity):
@@ -179,10 +179,9 @@ class TemplateNumberEntity(NumberEntity):
             @callback
             def template_number_startup(event):
                 """Listen for state changes."""
-                if self._entities:
-                    async_track_state_change_event(
-                        self.hass, self._entities, template_number_state_listener
-                    )
+                async_track_state_change_event(
+                    self.hass, self._entities, template_number_state_listener
+                )
 
                 self.async_schedule_update_ha_state(True)
 
