@@ -4,6 +4,7 @@ import os
 
 import voluptuous as vol
 
+from homeassistant.components.input_number import DOMAIN as INPUT_NUMBER_DOMAIN
 from homeassistant.components.number.const import DOMAIN as NUMBER_DOMAIN
 from homeassistant.components.template_number.const import DOMAIN
 from homeassistant.const import CONF_NAME, CONF_PLATFORM
@@ -13,19 +14,7 @@ from homeassistant.util.yaml.loader import load_yaml
 PWD = os.path.dirname(__file__)
 TEMPLATE_NUMBERS_CONFIG = {NUMBER_DOMAIN: load_yaml(PWD + "/numbers.yaml")}
 
-# Android TV device with ADB server
-CONFIG_TEMPLATE_NUMBER_NUMBER = {
-    NUMBER_DOMAIN: [
-        {
-            CONF_PLATFORM: DOMAIN,
-            "name": "test_1",
-            "initial": 50,
-            "min": 0,
-            "max": 100,
-            "set_value_script": {"service": "homeassistant.restart"},
-        }
-    ]
-}
+INPUT_NUMBERS_CONFIG = {INPUT_NUMBER_DOMAIN: load_yaml(PWD + "/input_numbers.yaml")}
 
 
 async def test_setup(hass):
@@ -33,11 +22,11 @@ async def test_setup(hass):
     assert await async_setup_component(
         hass,
         NUMBER_DOMAIN,
-        CONFIG_TEMPLATE_NUMBER_NUMBER,
+        TEMPLATE_NUMBERS_CONFIG,
     )
     await hass.async_block_till_done()
 
-    entity_id = "number.test_1"
+    entity_id = "number.tracked_value"
     state = hass.states.get(entity_id)
     assert state is not None
 
@@ -94,6 +83,12 @@ async def test_template_number(hass):
     """Test that the appropriate actions are performed when a `TemplateNumber` is changed."""
     assert await async_setup_component(
         hass,
+        INPUT_NUMBER_DOMAIN,
+        INPUT_NUMBERS_CONFIG,
+    )
+
+    assert await async_setup_component(
+        hass,
         NUMBER_DOMAIN,
         TEMPLATE_NUMBERS_CONFIG,
     )
@@ -133,3 +128,14 @@ async def test_template_number(hass):
     await hass.async_block_till_done()
     # check_states(hass, 25, 20, 75, 25)
     check_states(hass, 25, 20, 150, 10)
+
+    state = hass.states.get("input_number.input_number")
+    assert state is not None
+    assert float(state.state) == 0.0
+
+    hass.states.async_set("input_number.input_number", 25)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("number.input_number_tracker")
+    assert state is not None
+    # assert float(state.state) == 25.0

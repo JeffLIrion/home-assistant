@@ -33,3 +33,11 @@
       data_template:
         entity_id: number.value_changed_script
         value: "{{ value | multiply(3) }}"
+
+- platform: template_number
+  name: input_number_tracker
+  initial: 50
+  min: 0
+  max: 100
+  entity_id: "input_number.input_number"
+  value_template: "{{ states('input_number.input_number') | round(0) }}"

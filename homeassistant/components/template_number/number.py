@@ -38,45 +38,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-
-def cv_template_number2(cfg):
-    """Configure validation helper for template number (voluptuous)."""
-
-    return cfg
-
-
-PLATFORM_SCHEMA0 = vol.Schema(
-    {
-        DOMAIN: cv.schema_with_slug_keys(
-            vol.All(
-                {
-                    vol.Optional(CONF_NAME): cv.string,
-                    vol.Required(CONF_MIN): vol.Coerce(float),
-                    vol.Required(CONF_MAX): vol.Coerce(float),
-                    vol.Optional(CONF_INITIAL): vol.Coerce(float),
-                    vol.Optional(CONF_STEP, default=1): vol.All(
-                        vol.Coerce(float), vol.Range(min=1e-3)
-                    ),
-                    vol.Optional(CONF_ICON): cv.icon,
-                    vol.Optional(CONF_UNIT_OF_MEASUREMENT): cv.string,
-                    vol.Optional(CONF_MODE, default=MODE_SLIDER): vol.In(
-                        [MODE_BOX, MODE_SLIDER]
-                    ),
-                    # (Start) TemplateNumber
-                    vol.Optional(CONF_VALUE_TEMPLATE): cv.template,
-                    vol.Optional(CONF_ENTITY_ID): cv.entity_ids,
-                    vol.Optional(CONF_ICON_TEMPLATE): cv.template,
-                    vol.Optional(CONF_SET_VALUE_SCRIPT): cv.SCRIPT_SCHEMA,
-                    vol.Optional(CONF_VALUE_CHANGED_SCRIPT): cv.SCRIPT_SCHEMA,
-                    # (End) TemplateNumber
-                },
-                cv_template_number2,
-            )
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
-
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Optional(CONF_NAME): cv.string,
@@ -116,20 +77,20 @@ class TemplateNumberEntity(NumberEntity):
         # super().__init__(config)
 
         self._current_value = config.get(CONF_INITIAL)
-        self._max_value = config[CONF_MAX] if CONF_MAX in config else None
-        self._min_value = config[CONF_MIN] if CONF_MIN in config else None
-        self._mode = config[CONF_MODE] if CONF_MODE in config else None
+        self._max_value = config[CONF_MAX]
+        self._min_value = config[CONF_MIN]
+        self._mode = config[CONF_MODE]
         self._name = config.get(CONF_NAME)
-        self._step = config[CONF_STEP] if CONF_STEP in config else None
-        self._unique_id = config[CONF_ID] if CONF_ID in config else None
+        self._step = config[CONF_STEP]
+        self._unique_id = config.get(CONF_ID)
         self._unit_of_measurement = config.get(CONF_UNIT_OF_MEASUREMENT)
 
         self._entities = config.get(CONF_ENTITY_ID, set())
-        self.hass = hass if config.get(CONF_SET_VALUE_SCRIPT) is not None else None
+        self.hass = hass if config.get(CONF_SET_VALUE_SCRIPT) else None
 
         # template
         self._value_template = config.get(CONF_VALUE_TEMPLATE)
-        if self._value_template is not None:
+        if self._value_template:
             self._value_template.hass = self.hass
 
         # icon template
@@ -143,7 +104,7 @@ class TemplateNumberEntity(NumberEntity):
             self._set_value_script = Script(
                 hass,
                 config[CONF_SET_VALUE_SCRIPT],
-                config.get(CONF_NAME, "Template Number script"),
+                config.get(CONF_NAME, "Template Number set_value_script"),
                 DOMAIN,
             )
         else:
@@ -154,7 +115,7 @@ class TemplateNumberEntity(NumberEntity):
             self._value_changed_script = Script(
                 hass,
                 config[CONF_VALUE_CHANGED_SCRIPT],
-                config.get(CONF_NAME, "Template Number script"),
+                config.get(CONF_NAME, "Template Number value_changed_script"),
                 DOMAIN,
             )
         else:
