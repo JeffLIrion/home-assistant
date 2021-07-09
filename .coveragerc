@@ -1248,6 +1248,11 @@ omit =
     homeassistant/components/zwave_js/discovery.py
     homeassistant/components/zwave_js/sensor.py
 
+    # Custom components
+    homeassistant/components/cast_mock/*
+    homeassistant/components/tuya_local/*
+    homeassistant/components/wyzesense/*
+
 [report]
 # Regexes for lines to exclude from consideration
 exclude_lines =
