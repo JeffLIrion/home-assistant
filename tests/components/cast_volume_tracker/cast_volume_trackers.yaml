@@ -1,0 +1,63 @@
+all_my_speakers:
+  name: 'All My Speakers'
+  members:
+    - bedroom_speakers
+    - computer_speakers
+    - kitchen_home
+    - living_room_speakers
+  members_excluded_when_off:
+    - kitchen_home
+
+bedroom_mini:
+  name: 'Bedroom Mini'
+  mute_when_off: false
+  default_volume_template: 0.4
+
+bedroom_speakers:
+  name: 'Bedroom Speakers'
+  parents:
+    - all_my_speakers
+
+computer_speakers:
+  name: 'Computer Speakers'
+  parents:
+    - all_my_speakers
+    - kitchen_speakers
+    - main_speakers
+
+kitchen_home:
+  name: 'Kitchen Home'
+  mute_when_off: false
+  default_volume_template: 0.6
+  parents:
+    - all_my_speakers
+    - kitchen_speakers
+    - main_speakers
+
+kitchen_speakers:
+  name: 'Kitchen Speakers'
+  members:
+    - computer_speakers
+    - kitchen_home
+  members_excluded_when_off:
+    - kitchen_home
+
+living_room_display:
+  name: 'Living Room Display'
+  mute_when_off: false
+  default_volume_template: 0.7
+
+living_room_speakers:
+  name: 'Living Room Speakers'
+  parents:
+    - all_my_speakers
+    - main_speakers
+
+main_speakers:
+  name: 'Main Speakers'
+  members:
+    - computer_speakers
+    - kitchen_home
+    - living_room_speakers
+  members_excluded_when_off:
+    - kitchen_home

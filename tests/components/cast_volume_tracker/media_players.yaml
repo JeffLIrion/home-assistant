@@ -1,0 +1,63 @@
+- platform: cast_mock
+  name: 'All My Speakers'
+  members:
+    - bedroom_speakers
+    - computer_speakers
+    - kitchen_home
+    - living_room_speakers
+  members_excluded_when_off:
+    - kitchen_home
+
+- platform: cast_mock
+  name: 'Bedroom Mini'
+  mute_when_off: false
+  default_volume_template: 0.4
+
+- platform: cast_mock
+  name: 'Bedroom Speakers'
+  parents:
+    - all_my_speakers
+
+- platform: cast_mock
+  name: 'Computer Speakers'
+  parents:
+    - all_my_speakers
+    - kitchen_speakers
+    - main_speakers
+
+- platform: cast_mock
+  name: 'Kitchen Home'
+  mute_when_off: false
+  default_volume_template: 0.6
+  parents:
+    - all_my_speakers
+    - kitchen_speakers
+    - main_speakers
+
+- platform: cast_mock
+  name: 'Kitchen Speakers'
+  members:
+    - computer_speakers
+    - kitchen_home
+  members_excluded_when_off:
+    - kitchen_home
+
+- platform: cast_mock
+  name: 'Living Room Display'
+  mute_when_off: false
+  default_volume_template: 0.7
+
+- platform: cast_mock
+  name: 'Living Room Speakers'
+  parents:
+    - all_my_speakers
+    - main_speakers
+
+- platform: cast_mock
+  name: 'Main Speakers'
+  members:
+    - computer_speakers
+    - kitchen_home
+    - living_room_speakers
+  members_excluded_when_off:
+    - kitchen_home
