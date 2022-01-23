@@ -19,6 +19,9 @@ Dockerfile @home-assistant/supervisor
 homeassistant/scripts/check_config.py @kellerza
 
 # Integrations
+homeassistant/components/aaaaa_cast_volume_tracker/* @JeffLIrion
+tests/components/aaaaa_cast_volume_tracker/* @JeffLIrion
+homeassistant/components/aaaaa_wyzesense/* @kevinvincent
 homeassistant/components/abode/* @shred86
 tests/components/abode/* @shred86
 homeassistant/components/accuweather/* @bieniu
@@ -260,6 +263,7 @@ tests/components/enocean/* @bdurrer
 homeassistant/components/enphase_envoy/* @gtdiehl
 tests/components/enphase_envoy/* @gtdiehl
 homeassistant/components/entur_public_transport/* @hfurubotten
+tests/components/entur_public_transport/* @hfurubotten
 homeassistant/components/environment_canada/* @gwww @michaeldavie
 tests/components/environment_canada/* @gwww @michaeldavie
 homeassistant/components/envisalink/* @ufodone
@@ -893,6 +897,7 @@ tests/components/speedtestdotnet/* @rohankapoorcom @engrbm87
 homeassistant/components/spider/* @peternijssen
 tests/components/spider/* @peternijssen
 homeassistant/components/splunk/* @Bre77
+tests/components/splunk/* @Bre77
 homeassistant/components/spotify/* @frenck
 tests/components/spotify/* @frenck
 homeassistant/components/sql/* @dgomes
@@ -1001,6 +1006,7 @@ tests/components/unifiprotect/* @briis @AngellusMortis @bdraco
 homeassistant/components/upb/* @gwww
 tests/components/upb/* @gwww
 homeassistant/components/upc_connect/* @pvizeli @fabaff
+tests/components/upc_connect/* @pvizeli @fabaff
 homeassistant/components/upcloud/* @scop
 tests/components/upcloud/* @scop
 homeassistant/components/updater/* @home-assistant/core
