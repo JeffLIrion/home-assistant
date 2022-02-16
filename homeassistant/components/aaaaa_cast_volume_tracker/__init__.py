@@ -60,6 +60,7 @@ VALUE_STEP = 5.0
 
 # Schemas
 SERVICE_ENABLE_VOLUME_MANAGEMENT = "enable_volume_management"
+SERVICE_RESUBSCRIBE = "resubscribe"
 
 SERVICE_ENABLE_VOLUME_MANAGEMENT_SCHEMA = vol.Schema(
     {vol.Required(ATTR_IS_VOLUME_MANAGEMENT_ENABLED): cv.boolean}
@@ -138,23 +139,27 @@ async def async_setup(hass, config):
         on_script = cfg.get(CONF_ON_SCRIPT)
 
         # Get the `cast_is_on`, `value`, and `is_volume_muted` attributes from the media player
-        cast_state_obj = hass.states.get(f"{MEDIA_PLAYER_DOMAIN}.{object_id}")
+        mp_entity_id = f"{MEDIA_PLAYER_DOMAIN}.{object_id}"
+        cast_state_obj = hass.states.get(mp_entity_id)
         if cast_state_obj:
             cast_is_on = cast_state_obj.state in CAST_ON_STATES
-            mp_volume_level = cast_state_obj.attributes.get(ATTR_MEDIA_VOLUME_LEVEL)
+            value = cast_state_obj.attributes.get(ATTR_MEDIA_VOLUME_LEVEL, 0.0) * 100.0
+            is_volume_muted = cast_state_obj.attributes.get(
+                ATTR_MEDIA_VOLUME_MUTED, cfg[CONF_MUTE_WHEN_OFF]
+            )
 
-            if mp_volume_level is not None:
-                is_volume_muted = mp_volume_level < MUTE_THRESHOLD
-                value = 100.0 * mp_volume_level
-            else:
-                is_volume_muted = cfg[CONF_MUTE_WHEN_OFF]
-                value = 0.0
+            # if mp_volume_level is not None:
+            #    is_volume_muted = mp_volume_level < MUTE_THRESHOLD
+            #    value = 100.0 * mp_volume_level
+            # else:
+            #    is_volume_muted = cfg[CONF_MUTE_WHEN_OFF]
+            #    value = 0.0
 
         # The media player is off --> the `value` and `is_volume_muted` attributes will be restored from the last state
         else:
             cast_is_on = False
-            is_volume_muted = cfg[CONF_MUTE_WHEN_OFF]
             value = 0.0
+            is_volume_muted = cfg[CONF_MUTE_WHEN_OFF]
 
         if CONF_MEMBERS not in cfg:
             cvt = CastVolumeTrackerIndividual(
@@ -190,6 +195,23 @@ async def async_setup(hass, config):
             hass.data[DOMAIN][object_id] = cvt
             entities.append(cvt)
 
+        if not cast_is_on:
+            # If the media player is off, set its volume and mute/unmute status
+            mp_entity_id = f"{MEDIA_PLAYER_DOMAIN}.{object_id}"
+            await hass.services.async_call(
+                MEDIA_PLAYER_DOMAIN,
+                SERVICE_VOLUME_MUTE,
+                {
+                    ATTR_ENTITY_ID: mp_entity_id,
+                    ATTR_MEDIA_VOLUME_MUTED: is_volume_muted,
+                },
+            )
+            await hass.services.async_call(
+                MEDIA_PLAYER_DOMAIN,
+                SERVICE_VOLUME_SET,
+                {ATTR_ENTITY_ID: mp_entity_id, ATTR_MEDIA_VOLUME_LEVEL: value * 0.01},
+            )
+
     if not entities:
         return False
 
@@ -223,6 +245,18 @@ async def async_setup(hass, config):
         SERVICE_ENABLE_VOLUME_MANAGEMENT,
         async_enable_volume_management,
         schema=SERVICE_ENABLE_VOLUME_MANAGEMENT_SCHEMA,
+    )
+
+    async def async_resubscribe(service):
+        """Resubscribe all state listeners."""
+        for cvt in hass.data[DOMAIN].values():
+            await cvt.async_resub()
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RESUBSCRIBE,
+        async_resubscribe,
+        schema={},
     )
 
     await component.async_add_entities(entities)
@@ -260,8 +294,6 @@ class CastVolumeTracker(RestoreEntity):
 
     Attributes
     ----------
-    _entities : list[str]
-        A list with one entry: the entity ID of the associated media player
     _name : str
         The friendly name for the cast volume tracker
     _off_script : Script, None
@@ -311,12 +343,12 @@ class CastVolumeTracker(RestoreEntity):
     ):
         """Initialize a Cast Volume Tracker."""
         self.hass = hass
+        self._unsub = None
 
         # strings
         self.entity_id = ENTITY_ID_FORMAT.format(object_id)
         self.object_id = object_id
         self.media_player = f"{MEDIA_PLAYER_DOMAIN}.{object_id}"
-        self._entities = [f"{MEDIA_PLAYER_DOMAIN}.{object_id}"]
         self._name = name
 
         # state attributes - floats
@@ -351,7 +383,7 @@ class CastVolumeTracker(RestoreEntity):
 
     # ======================================================================= #
     #                                                                         #
-    #                               Properties                                #
+    #                          HA Properties                                  #
     #                                                                         #
     # ======================================================================= #
     @property
@@ -380,24 +412,50 @@ class CastVolumeTracker(RestoreEntity):
             ATTR_MEDIA_VOLUME_MUTED: self.is_volume_muted,
         }
 
-    @property
-    def equilibrium(self):
-        """Whether or not the cast volume is at the expected level."""
-        return self.mp_volume_level is None or round(self.mp_volume_level, 3) == round(
-            self.expected_volume_level, 3
-        )
-
+    # ======================================================================= #
+    #                                                                         #
+    #                               Properties                                #
+    #                                                                         #
+    # ======================================================================= #
     @property
     def expected_value(self):
-        """Get the expected value, based on ``self.mp_volume_level`` and stuff..."""
-        if self.is_volume_muted or self.mp_volume_level is None:
+        """Get the expected value, based on ``self.mp_volume_level`` and stuff...
+
+        Returns
+        -------
+        float
+            What we expect the value to be based on the media player volume level
+
+        """
+        if self.mp_volume_level is None:
             return self.value
         return 100.0 * self.mp_volume_level
 
     @property
     def expected_volume_level(self):
-        """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
-        raise NotImplementedError
+        """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``.
+
+        Returns
+        -------
+        float
+            What we expect the media player volume to be based on the value
+
+        """
+        return 0.01 * self.value
+
+    @property
+    def equilibrium(self):
+        """Whether or not the cast volume is at the expected level.
+
+        Returns
+        -------
+        bool
+            Whether the media player volume level matches the expected volume level
+
+        """
+        return self.mp_volume_level is None or round(self.mp_volume_level, 3) == round(
+            self.expected_volume_level, 3
+        )
 
     # ======================================================================= #
     #                                                                         #
@@ -415,10 +473,11 @@ class CastVolumeTracker(RestoreEntity):
         @callback
         def cast_volume_tracker_startup(event):
             """Listen for state changes."""
-            if self._entities:
-                async_track_state_change_event(
-                    self.hass, self._entities, cast_volume_tracker_state_listener
-                )
+            self._unsub = async_track_state_change_event(
+                self.hass,
+                [f"{MEDIA_PLAYER_DOMAIN}.{self.object_id}"],
+                cast_volume_tracker_state_listener,
+            )
 
             self.async_schedule_update_ha_state(True)
 
@@ -430,26 +489,30 @@ class CastVolumeTracker(RestoreEntity):
 
         # If the cast is off, restore the last `value` and `is_volume_muted`
         # attributes
-        if self.cast_is_on:
-            return
+        # if self.cast_is_on:
+        #    return
 
-        state = await self.async_get_last_state()
-        if state is None:
-            return
+        # state = await self.async_get_last_state()
+        # if state is None:
+        #    return
 
-        value = state and float(state.state)
-        is_volume_muted = state.attributes.get(ATTR_MEDIA_VOLUME_MUTED)
+        # value = state and float(state.state)
+        # is_volume_muted = state.attributes.get(ATTR_MEDIA_VOLUME_MUTED)
 
         # Check against None because value can be 0
-        if value is not None:
-            self.value_prev = self.value
-            self.value = value
+        # if value is not None:
+        #    self.value_prev = self.value
+        #    self.value = value
 
-        if is_volume_muted is not None:
-            self.is_volume_muted = is_volume_muted
+        # if is_volume_muted is not None:
+        #    self.is_volume_muted = is_volume_muted
 
     async def async_volume_set(self, volume_level=None):
-        """Set new volume level."""
+        """Set new volume level.
+
+        This calls `self._volume_set` to get the service arguments, then calls those services.
+
+        """
         if volume_level is None:
             if self.default_volume_template is None:
                 return
@@ -461,7 +524,6 @@ class CastVolumeTracker(RestoreEntity):
             volume_level = float(volume_level)
 
         service_args = self._volume_set(volume_level)
-
         for args in service_args:
             await self.hass.services.async_call(*args)
 
@@ -470,7 +532,11 @@ class CastVolumeTracker(RestoreEntity):
         self.async_write_ha_state()
 
     async def async_volume_mute(self, is_volume_muted):
-        """Mute the volume."""
+        """Mute the volume.
+
+        This calls `self._volume_mute` to get the service arguments, then calls those services.
+
+        """
         service_args = self._volume_mute(is_volume_muted)
 
         for args in service_args:
@@ -481,7 +547,11 @@ class CastVolumeTracker(RestoreEntity):
         self.async_write_ha_state()
 
     async def async_volume_down(self):
-        """Decrease the volume."""
+        """Decrease the volume.
+
+        This calls `self._volume_down` to get the service arguments, then calls those services.
+
+        """
         service_args = self._volume_down()
 
         for args in service_args:
@@ -492,7 +562,11 @@ class CastVolumeTracker(RestoreEntity):
         self.async_write_ha_state()
 
     async def async_volume_up(self):
-        """Increase the volume."""
+        """Increase the volume.
+
+        This calls `self._volume_up` to get the service_arguments, then calls those services.
+
+        """
         service_args = self._volume_up()
 
         for args in service_args:
@@ -520,14 +594,45 @@ class CastVolumeTracker(RestoreEntity):
             if self._on_script:
                 await self._on_script.async_run(context=self._context)
 
+    async def async_resub(self):
+        """Re-subscribe to state changes."""
+        if self._unsub:
+            self._unsub()
+
+        @callback
+        def cast_volume_tracker_state_listener(entity):
+            """Handle target device state changes."""
+            self.async_schedule_update_ha_state(True)
+
+        self._unsub = async_track_state_change_event(
+            self.hass,
+            [f"{MEDIA_PLAYER_DOMAIN}.{self.object_id}"],
+            cast_volume_tracker_state_listener,
+        )
+
     # ======================================================================= #
     #                                                                         #
-    #                             Helper methods                              #
+    #                          Static helper methods                          #
+    #               (for generating service call arguments)                   #
     #                                                                         #
     # ======================================================================= #
     @staticmethod
     def cvt_volume_mute(entity_id, is_volume_muted):
-        """Return arguments to be passed to the `cast_volume_tracker.volume_mute` service."""
+        """Return arguments to be passed to the `aaaaa_cast_volume_tracker.volume_mute` service.
+
+        Parameters
+        ----------
+        entity_id : list[CastVolumeTracker]
+            A list of the CastVolumeTracker objects that will be muted/unmuted
+        is_volume_muted : bool
+            Whether to mute or un-mute the volume
+
+        Returns
+        -------
+        list[list]
+            A list of arguments that will be expanded and passed to `hass.services.async_call`
+
+        """
         return [
             [
                 DOMAIN,
@@ -543,7 +648,21 @@ class CastVolumeTracker(RestoreEntity):
 
     @staticmethod
     def cvt_volume_set(entity_id, volume_level=None):
-        """Return arguments to be passed to the `cast_volume_tracker.volume_set` service."""
+        """Return arguments to be passed to the `aaaaa_cast_volume_tracker.volume_set` service.
+
+        Parameters
+        ----------
+        entity_id : str, list[CastVolumeTracker]
+            A CastVolumeTracker entity ID *or* a list of CastVolumeTracker objects
+        volume_level : float, None
+            The volume level that will be set *or* `None` if the volume will be determined using the volume template
+
+        Returns
+        -------
+        list[list]
+            A list of arguments that will be expanded and passed to `hass.services.async_call`
+
+        """
         if isinstance(entity_id, str):
             if volume_level is None:
                 return [[DOMAIN, SERVICE_VOLUME_SET, {ATTR_ENTITY_ID: entity_id}]]
@@ -581,8 +700,50 @@ class CastVolumeTracker(RestoreEntity):
         ]
 
     @staticmethod
+    def mp_volume_mute(entity_id, is_volume_muted):
+        """Return arguments to be passed to the `media_player.volume_mute` service.
+
+        Parameters
+        ----------
+        entity_id : str, list[str]
+            One or more media player entity IDs
+        is_volume_muted : bool
+            Whether to mute or un-mute the volume
+
+        Returns
+        -------
+        list[list]
+            A list of arguments that will be expanded and passed to `hass.services.async_call`
+
+        """
+        return [
+            [
+                MEDIA_PLAYER_DOMAIN,
+                SERVICE_VOLUME_MUTE,
+                {
+                    ATTR_ENTITY_ID: entity_id,
+                    ATTR_MEDIA_VOLUME_MUTED: is_volume_muted,
+                },
+            ]
+        ]
+
+    @staticmethod
     def mp_volume_set(entity_id, volume_level):
-        """Return arguments to be passed to the `media_player.volume_set` service."""
+        """Return arguments to be passed to the `media_player.volume_set` service.
+
+        Parameters
+        ----------
+        entity_id : str, list[str]
+            One or more media player entity IDs
+        volume_level : float
+            The volume level that will be set for the media player(s)
+
+        Returns
+        -------
+        list[list]
+            A list of arguments that will be expanded and passed to `hass.services.async_call`
+
+        """
         return [
             [
                 MEDIA_PLAYER_DOMAIN,
@@ -591,12 +752,24 @@ class CastVolumeTracker(RestoreEntity):
             ]
         ]
 
-    def get_members_and_parents(self):
-        """Fill in the `members*` attribute for groups and the `parents` attribute for individuals."""
-        raise NotImplementedError
-
+    # ======================================================================= #
+    #                                                                         #
+    #                             Helper methods                              #
+    #                                                                         #
+    # ======================================================================= #
     def set_attributes(self, cast_is_on=None, value=None, is_volume_muted=None):
-        """Set the attributes for the cast volume tracker."""
+        """Set the attributes for the cast volume tracker.
+
+        Parameters
+        ----------
+        cast_is_on : bool, None
+            If provided, the value that will be set for `self.cast_is_on`
+        value : float, None
+            If provided, the value that will be set for `self.value`
+        is_volume_muted : bool, None
+            If provided, the value that will be set for `self.is_volume_muted`
+
+        """
         if cast_is_on is not None:
             self.cast_is_on_prev = self.cast_is_on
             self.cast_is_on = cast_is_on
@@ -609,12 +782,19 @@ class CastVolumeTracker(RestoreEntity):
             self.is_volume_muted = is_volume_muted
 
     def _update(self):
-        """Update the cast volume tracker."""
+        """Update the cast volume tracker.
+
+        Returns
+        -------
+        list[list]
+            A list of arguments that will be expanded and passed to `hass.services.async_call`
+
+        """
         cast_state_obj = self.hass.states.get(self.media_player)
 
         # The state object could not be found or the state is unknown / unavailable
         if not cast_state_obj or cast_state_obj.state is None:
-            return
+            return []
 
         # Update the current and previous state attributes
         self.cast_is_on_prev = self.cast_is_on
@@ -655,6 +835,39 @@ class CastVolumeTracker(RestoreEntity):
 
         return []
 
+    def _volume_down(self):
+        """Decrease the volume.
+
+        Returns
+        -------
+        list[list]
+            A list of arguments that will be expanded and passed to `hass.services.async_call`
+
+        """
+        volume_level = max(self.value - VALUE_STEP, VALUE_MIN) / VALUE_MAX
+        return self._volume_set(volume_level)
+
+    def _volume_up(self):
+        """Increase the volume.
+
+        Returns
+        -------
+        list[list]
+            A list of arguments that will be expanded and passed to `hass.services.async_call`
+
+        """
+        volume_level = min(self.value + VALUE_STEP, VALUE_MAX) / VALUE_MAX
+        return self._volume_set(volume_level)
+
+    # ======================================================================= #
+    #                                                                         #
+    #                    Not implemented helper methods                       #
+    #                                                                         #
+    # ======================================================================= #
+    def get_members_and_parents(self):
+        """Fill in the `members*` attribute for groups and the `parents` attribute for individuals."""
+        raise NotImplementedError
+
     def _update_on_to_off(self):
         raise NotImplementedError
 
@@ -671,16 +884,6 @@ class CastVolumeTracker(RestoreEntity):
     def _volume_set(self, volume_level):
         """Set the volume."""
         raise NotImplementedError
-
-    def _volume_down(self):
-        """Decrease the volume."""
-        volume_level = max(self.value - VALUE_STEP, VALUE_MIN) / VALUE_MAX
-        return self._volume_set(volume_level)
-
-    def _volume_up(self):
-        """Increase the volume."""
-        volume_level = min(self.value + VALUE_STEP, VALUE_MAX) / VALUE_MAX
-        return self._volume_set(volume_level)
 
 
 # =========================================================================== #
@@ -720,8 +923,6 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
 
     Attributes
     ----------
-    _entities : list[str]
-        A list with one entry: the entity ID of the associated media player
     _name : str
         The friendly name for the cast volume tracker
     _off_script : Script, None
@@ -821,17 +1022,18 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
         self.members_with_default = []
         self.members_without_default = []
 
-    @property
-    def expected_volume_level(self):
-        """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
-        return (
-            0.0
-            if self.is_volume_muted
-            else 0.01
-            * self.value
-            * sum(not member.is_volume_muted for member in self.members)
-            / len(self.members)
-        )
+    # @property
+    # def expected_volume_level(self):
+    #    """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
+    #    return 0.01 * self.value
+    #    #return (
+    #    #    0.0
+    #    #    if self.is_volume_muted
+    #    #    else 0.01
+    #    #    * self.value
+    #    #    * sum(not member.is_volume_muted for member in self.members)
+    #    #    / len(self.members)
+    #    #)
 
     def get_members_and_parents(self):
         """Fill in the `members*` attributes."""
@@ -898,7 +1100,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             # CASE 1
             #   The volume is at equilibrium -> update the value.
             #
-            #   EXAMPLE: the `cast_volume_tracker.volume_set` service was used
+            #   EXAMPLE: the `aaaaa_cast_volume_tracker.volume_set` service was used
             #   to change the volume for the group
             if self.equilibrium:
                 self.value_prev = self.value
@@ -913,7 +1115,7 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
             #   The volume is not at equilibrium because the volume was changed
             #   for a member `CastVolumeTrackerIndividual` -> update the value.
             #
-            #   EXAMPLE: the `cast_volume_tracker.volume_set` service was used
+            #   EXAMPLE: the `aaaaa_cast_volume_tracker.volume_set` service was used
             #   to change the volume for a member
             elif any(
                 round(member.value, 3) != round(self.value, 3)
@@ -954,15 +1156,12 @@ class CastVolumeTrackerGroup(CastVolumeTracker):
 
     def _volume_mute(self, is_volume_muted):
         """Mute/Un-mute the volume for the group members."""
-        if not self.cast_is_on:
-            return []
-
         if is_volume_muted ^ self.is_volume_muted:
-            self.set_attributes(is_volume_muted=is_volume_muted)
+            # This gets into an infinite loop...
+            # return self.cvt_volume_mute([self] + self.members, is_volume_muted)
+            return self.cvt_volume_mute([] + self.members, is_volume_muted)
 
-            # 1) Mute the cast volume trackers
-            return self.cvt_volume_mute(self.members, is_volume_muted)
-
+        # If the CVT is already muted/unmuted, return an empty list so no service calls are performed
         return []
 
     def _volume_set(self, volume_level):
@@ -1030,8 +1229,6 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
 
     Attributes
     ----------
-    _entities : list[str]
-        A list with one entry: the entity ID of the associated media player
     _name : str
         The friendly name for the cast volume tracker
     _off_script : Script, None
@@ -1110,10 +1307,10 @@ class CastVolumeTrackerIndividual(CastVolumeTracker):
         # does this speaker have a default volume template?
         self.has_default_volume = bool(default_volume_template)
 
-    @property
-    def expected_volume_level(self):
-        """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
-        return 0.0 if self.is_volume_muted else 0.01 * self.value
+    # @property
+    # def expected_volume_level(self):
+    #    """Get the expected cast volume level, based on ``self.value`` and ``self.is_volume_muted``."""
+    #    return 0.0 if self.is_volume_muted else 0.01 * self.value
 
     def get_members_and_parents(self):
         """Fill in the `parents`."""
